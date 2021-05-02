@@ -20,13 +20,13 @@ describe('Positional command parser', function() {
 
 			it('Missing Argument name', function() {
 				expect(() => new Argument()).to.throw(
-					"name was 'undefined', expected 'string'"
+					'name was [object Undefined], expected [object String]'
 				);
 			});
 
 			it('Non-string Argument name', function() {
 				expect(() => new Argument({})).to.throw(
-					"name was 'object', expected 'string'"
+					'name was [object Object], expected [object String]'
 				);
 			});
 
@@ -36,22 +36,22 @@ describe('Positional command parser', function() {
 
 			it('Non-boolean varargs flag', function() {
 				expect(() => new Argument('test').varargs({})).to.throw(
-					"enabled was 'object', expected 'boolean'"
+					'enabled was [object Object], expected [object Boolean]'
 				);
 			});
 
 			it('Non-function preprocessor', function () {
 				expect(() => new Argument('test').preprocess({})).to.throw(
-					"func was 'object', expected 'function'"
+					'func was [object Object], expected [object Function]'
 				);
 			});
 
 			it('Non-string and non-Array args', function() {
 				expect(() => new Argument('test').parse({})).to.throw(
-					"args was 'object', expected 'string' or 'Array<string>'"
+					"args was [object Object], expected [object String] or 'Array<string>'"
 				);
 				expect(() => new Argument('test').parse(true)).to.throw(
-					"args was 'boolean', expected 'string' or 'Array<string>'"
+					"args was [object Boolean], expected [object String] or 'Array<string>'"
 				);
 			});
 		});
@@ -143,7 +143,7 @@ describe('Positional command parser', function() {
 
 			it('Exception thrown for non-string values', function() {
 				expect(() => Command.split({})).to.throw(
-					"string was 'object', expected 'string'"
+					'string was [object Object], expected [object String]'
 				);
 			});
 		});
@@ -152,13 +152,13 @@ describe('Positional command parser', function() {
 
 			it('Missing Command name', function() {
 				expect(() => new Command()).to.throw(
-					"name was 'undefined', expected 'string'"
+					'name was [object Undefined], expected [object String]'
 				);
 			});
 
 			it('Non-string Command name', function() {
 				expect(() => new Command({})).to.throw(
-					"name was 'object', expected 'string'"
+					'name was [object Object], expected [object String]'
 				);
 			});
 
@@ -168,13 +168,13 @@ describe('Positional command parser', function() {
 
 			it('Non-string description', function() {
 				expect(() => new Command('test').description({})).to.throw(
-					"name was 'object', expected 'string'"
+					'name was [object Object], expected [object String]'
 				);
 			});
 
 			it('Non-function handler', function() {
 				expect(() => new Command('test').handler({})).to.throw(
-					"func was 'object', expected 'function'"
+					'func was [object Object], expected [object Function]'
 				);
 			});
 		});

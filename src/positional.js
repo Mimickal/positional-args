@@ -17,8 +17,8 @@ class Argument {
 	 * Constructs an argument with the given name.
 	 */
 	constructor(name) {
-		if (typeof name !== 'string') {
-			throw new Error(`name was '${typeof name}', expected 'string'`);
+		if (!isString(name)) {
+			throw new Error(`name was ${type(name)}, expected [object String]`);
 		}
 		if (!name) {
 			throw new Error('name was empty string');
@@ -37,9 +37,9 @@ class Argument {
 	 */
 	parse(args) {
 		// TODO async preprocessor function?
-		if (typeof args !== 'string' && !(args instanceof Array)) {
+		if (!isString(args) && !Array.isArray(args)) {
 			throw new Error(
-				`args was '${typeof args}', expected 'string' or 'Array<string>'`
+				`args was ${type(args)}, expected [object String] or 'Array<string>'`
 			);
 		}
 
@@ -53,7 +53,7 @@ class Argument {
 
 			try {
 				const returned = this._preprocessor(input);
-				return typeof returned === 'undefined' ? copy : returned;
+				return returned === undefined ? copy : returned;
 			}
 			catch (err) {
 				let arg_id = `<${this._name}>`;
@@ -69,7 +69,7 @@ class Argument {
 			}
 		}
 
-		if (this._varargs && args instanceof Array) {
+		if (this._varargs && Array.isArray(args)) {
 			return args.map(applyPreprocessor);
 		} else {
 			return applyPreprocessor(args);
@@ -85,8 +85,8 @@ class Argument {
 	 * will be forwarded as-is.
 	 */
 	preprocess(func) {
-		if (typeof func !== 'function') {
-			throw new Error(`func was '${typeof func}', expected 'function'`);
+		if (!isFunction(func)) {
+			throw new Error(`func was ${type(func)}, expected [object Function]`);
 		}
 
 		this._preprocessor = func;
@@ -110,8 +110,8 @@ class Argument {
 	 * A varargs argument must be the last argument for a command.
 	 */
 	varargs(enabled) {
-		if (typeof enabled !== 'boolean') {
-			throw new Error(`enabled was '${typeof enabled}', expected 'boolean'`);
+		if (!isBoolean(enabled)) {
+			throw new Error(`enabled was ${type(enabled)}, expected [object Boolean]`);
 		}
 
 		this._varargs = enabled;
@@ -129,9 +129,9 @@ class Command {
 	 * parts.
 	 */
 	static split(string) {
-		if (typeof string !== 'string') {
+		if (!isString(string)) {
 			throw new Error(
-				`string was '${typeof string}', expected 'string'`
+				`string was ${type(string)}, expected [object String]`
 			);
 		}
 
@@ -146,8 +146,8 @@ class Command {
 	 * Begins constructing a command with the given name.
 	 */
 	constructor(name) {
-		if (typeof name !== 'string') {
-			throw new Error(`name was '${typeof name}', expected 'string'`);
+		if (!isString(name)) {
+			throw new Error(`name was ${type(name)}, expected [object String]`);
 		}
 		if (!name) {
 			throw new Error('name was empty string');
@@ -189,8 +189,8 @@ class Command {
 	 * Returns this so we can chain calls.
 	 */
 	description(desc) {
-		if (typeof desc !== 'string') {
-			throw new Error(`name was '${typeof desc}', expected 'string'`);
+		if (!isString(desc)) {
+			throw new Error(`name was ${type(desc)}, expected [object String]`);
 		}
 
 		this._description = desc;
@@ -231,8 +231,8 @@ class Command {
 	 * Returns this so we can chain calls.
 	 */
 	handler(func) {
-		if (typeof func !== 'function') {
-			throw new Error(`func was '${typeof func}', expected 'function'`);
+		if (!isFunction(func)) {
+			throw new Error(`func was ${type(func)}, expected [object Function]`);
 		}
 
 		this._handler = func;
@@ -308,6 +308,23 @@ class Command {
 
 		return parsed;
 	}
+}
+
+// This is probably why TypeScript was created.
+function isBoolean(value) {
+	return type(value) === '[object Boolean]';
+}
+
+function isFunction(value) {
+	return type(value) === '[object Function]';
+}
+
+function isString(value) {
+	return type(value) === '[object String]';
+}
+
+function type(value) {
+	return Object.prototype.toString.call(value)
 }
 
 module.exports = {
