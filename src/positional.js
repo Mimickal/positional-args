@@ -118,3 +118,199 @@ class Argument {
 		return this;
 	}
 }
+
+/**
+ * Represents a text-based command with positional arguments.
+ */
+class Command {
+
+	/**
+	 * Splits a string into a hash describing the command name and split command
+	 * parts.
+	 */
+	static split(string) {
+		if (typeof string !== 'string') {
+			throw new Error(
+				`string was '${typeof string}', expected 'string'`
+			);
+		}
+
+		let parts = string.split(/\s+/);
+		return {
+			name: parts.shift(),
+			parts: parts,
+		};
+	}
+
+	/**
+	 * Begins constructing a command with the given name.
+	 */
+	constructor(name) {
+		if (typeof name !== 'string') {
+			throw new Error(`name was '${typeof name}', expected 'string'`);
+		}
+		if (!name) {
+			throw new Error('name was empty string');
+		}
+
+		this._name = name;
+		this._argsets = [];
+		this._description = null;
+		this._handler = null;
+	}
+
+	/**
+	 * Adds a set of arguments this command can accept.
+	 * Expects an array of <code>Argument</code> objects. A command cannot have
+	 * multiple argument sets with the same length. If an argument set contains
+	 * a varargs argument, the varargs argument must be the last one in the set.
+	 * Returns this so we can chain calls.
+	 */
+	addArgSet(argset) {
+		if (!Array.isArray(argset) || !argset.every(arg => arg instanceof Argument)) {
+			throw new Error("argset must be of type 'Array<Argument>'");
+		}
+		if (this._argsets.find(set => set.length === argset.length)) {
+			throw new Error(`Multiple argument sets of length ${argset.length}`);
+		}
+		if (
+			argset.find(arg => arg._varargs) &&
+			argset.findIndex(arg => arg._varargs) !== argset.length - 1
+		) {
+			throw new Error('Only the last argument may be a varargs argument');
+		}
+
+		this._argsets.push(argset);
+		return this;
+	}
+
+	/**
+	 * Sets the description for this command.
+	 * Returns this so we can chain calls.
+	 */
+	description(desc) {
+		if (typeof desc !== 'string') {
+			throw new Error(`name was '${typeof desc}', expected 'string'`);
+		}
+
+		this._description = desc;
+		return this;
+	}
+
+	/**
+	 * Parses the given positional argument array, then passes the resulting
+	 * structure into this command's handler function. Additional values can be
+	 * passed in to forward them directly to the handler.
+	 * The return value is whatever the handler function returns.
+	 * If this command does not have a handler, the arguments will still be
+	 * proecessed and validation will still be applied.
+	 */
+	execute(parts, ...forward) {
+		const parsed_parts = this.parse(parts);
+		if (this._handler) {
+			try {
+				return this._handler(parsed_parts, ...forward);
+			} catch (err) {
+				throw new Error(`Command failed: ${err.message}`);
+			}
+		}
+	}
+
+	/**
+	 * Returns the command's description. We'll usually do this alongside
+	 * usage(), so make this look like a function call too.
+	 */
+	getDescription() {
+		return this._description;
+	}
+
+	/**
+	 * Sets the function to execute when this command is called.
+	 * The parsed argument hash is passed into this function, along with any
+	 * forwarded arguments passed into <code>execute</code>.
+	 * Returns this so we can chain calls.
+	 */
+	handler(func) {
+		if (typeof func !== 'function') {
+			throw new Error(`func was '${typeof func}', expected 'function'`);
+		}
+
+		this._handler = func;
+		return this;
+	}
+
+	/**
+	 * Returns a string describing command usage.
+	 * If the command has multiple argument sets, each version of the command is
+	 * in the string, separated by a newline.
+	 */
+	usage() {
+		const use = this._argsets.map(argset =>
+			`${this._name} ${argset.map(arg => arg.usage()).join(' ')}`
+		).join('\n');
+		// Just return the command name if there are no arguments.
+		return use || `${this._name}`;
+	}
+
+	/**
+	 * Parses the given positional value array into a structure resembling
+	 * argument parsing libraries like yargs.
+	 *
+	 * This function do its best to match the values to one of the command's
+	 * argument sets. Since all arguments are positional, diagnostics are
+	 * limited if the argument has multiple argument sets defined.
+	 */
+	parse(parts) {
+		parts = parts || [];
+		const copy = parts.slice(); // Operate on a copy
+
+		const parsed = {};
+		parsed['_'] = parts.slice(); // Store a (second) copy
+
+		let argset;
+
+		if (this._argsets.length <= 1) {
+			argset = this._argsets[0] || [];
+		} else {
+			argset = this._argsets.find(set => set.length === copy.length);
+
+			if (!argset) {
+				throw new Error(
+					'Wrong number of arguments! See command help for details'
+				);
+			}
+		}
+
+		// If this command has multiple argument sets, the above logic ensures
+		// we have the correct number of arguments once we get here.
+		argset.forEach(arg => {
+			if (arg._varargs) {
+				parsed[arg._name] = copy.map(value => arg.parse(value));
+				copy.length = 0; // Clear array
+			} else {
+				const value = copy.shift();
+				if (value !== undefined) {
+					parsed[arg._name] = arg.parse(value);
+				} else {
+					throw new Error(
+						`Too few arguments! Missing argument <${arg._name}>`
+					);
+				}
+			}
+		});
+
+		if (copy.length > 0) {
+			throw new Error(
+				'Too many arguments! Extras: ' +
+				copy.map(val => `'${val}'`).join(', ')
+			);
+		}
+
+		return parsed;
+	}
+}
+
+module.exports = {
+	Argument,
+	Command,
+};
