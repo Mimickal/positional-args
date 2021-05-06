@@ -11,6 +11,7 @@ const expect = require('chai').expect;
 const pp = require('../src/positional');
 const Argument = pp.Argument;
 const Command = pp.Command;
+const CommandRegistry = pp.CommandRegistry;
 
 describe('Positional command parser', function() {
 
@@ -409,4 +410,180 @@ describe('Positional command parser', function() {
 		});
 	});
 
+	describe('CommandRegistry', function() {
+
+		describe('Adding new commands', function() {
+
+			it('Commands sucessfully added', function() {
+				const cmdreg = new CommandRegistry();
+				const cmd1 = new Command('test');
+				const cmd2 = new Command('abc');
+				cmdreg.add(cmd1).add(cmd2);
+
+				expect(cmdreg.commands).to.have.lengthOf(2);
+				expect(cmdreg.commands).to.include(cmd1).and.include(cmd2);
+			});
+
+			it('Error thrown for non-Command object', function() {
+				const cmdreg = new CommandRegistry();
+				expect(() => cmdreg.add({})).to.throw(
+					'command was [object Object], expected [object Command]'
+				);
+			});
+
+			it('Error thrown for duplicate commands', function() {
+				const cmdreg = new CommandRegistry();
+				cmdreg.add(new Command('test'));
+				expect(() => cmdreg.add(new Command('test'))).to.throw(
+					"Defined duplicate command 'test'"
+				);
+			});
+		});
+
+		describe('Default handler used for unrecognized commands', function () {
+
+			it('No-op if no default handler defined', function() {
+				const cmdreg = new CommandRegistry()
+					.add(new Command('test'));
+				expect(() => cmdreg.execute('unknown')).to.not.throw;
+				expect(cmdreg.execute('unknown')).to.be.undefined;
+			});
+
+			it('Default handler throws an Error', function() {
+				const cmdreg = new CommandRegistry()
+					.defaultHandler();
+				expect(() => cmdreg.execute('unknown')).to.throw(
+					"Unrecognized command 'unknown'"
+				);
+			});
+
+			it('Return value from default handler bubbles up', function() {
+				const cmdreg = new CommandRegistry()
+					.defaultHandler(() => 'My cool value');
+				expect(cmdreg.execute('unknown')).to.equal('My cool value');
+			});
+
+			it('Args forwarded to handler', function() {
+				const cmdreg = new CommandRegistry()
+					.defaultHandler((args, forward1, forward2) => {
+						return {
+							thing1: forward1,
+							thing2: forward2,
+						};
+					});
+				expect(cmdreg.execute('unknown', 'aaa', {x: 'y'})).to.deep.equal({
+					thing1: 'aaa',
+					thing2: {x: 'y'},
+				});
+			});
+
+			it('Error thrown for non-function handler', function() {
+				const cmdreg = new CommandRegistry();
+				expect(() => cmdreg.defaultHandler('not a function')).to.throw(
+					'func was [object String], expected [object Function]'
+				);
+			});
+
+			it('Error from handler bubbles up', function() {
+				const cmdreg = new CommandRegistry()
+					.defaultHandler(() => {
+						throw new Error('I have a problem');
+					});
+				expect(() => cmdreg.execute('unknown')).to.throw(
+					'I have a problem'
+				);
+			});
+		});
+
+		describe('Help', function() {
+			const cmdreg = new CommandRegistry()
+				.add(new Command('com1')
+					.description('My test command 1')
+					.addArgSet([new Argument('arg1')])
+				)
+				.add(new Command('com2')
+					.description('Another test command')
+					.addArgSet([new Argument('arg2')])
+					.addArgSet([new Argument('ver2'), new Argument('ano')])
+				);
+			const usage =
+				'com1 <arg1>\n' +
+				'com2 <arg2>\n' +
+				'com2 <ver2> <ano>';
+
+			it('No-op if no help handler defined', function() {
+				expect(cmdreg.help()).to.be.undefined;
+			});
+
+			it('Default help handler returns usage string', function() {
+				cmdreg.helpHandler();
+				expect(cmdreg.help()).to.equal(usage);
+			});
+
+			it('Default help handler gracefully handles unknown commmands', function() {
+				expect(cmdreg.help('unknown')).to.equal("Unknown command 'unknown'");
+			});
+
+			it('Can execute help as a command', function() {
+				expect(cmdreg.execute('help')).to.equal(usage);
+			});
+
+			it('Can get help for a single command', function() {
+				expect(cmdreg.help('com2')).to.equal(
+					'com2 <arg2>\n' +
+					'com2 <ver2> <ano>'
+				);
+			});
+
+			it('Args forwarded to handler', function() {
+				cmdreg.helpHandler((name, commands, arg1, arg2) => ({
+					arg1: arg1,
+					arg2: arg2,
+				}));
+				expect(cmdreg.help('ignored', 'aaa', {x: 'y'})).to.deep.equal({
+					arg1: 'aaa',
+					arg2: {x: 'y'},
+				});
+			});
+
+			it('Handler function gets command list', function() {
+				cmdreg.helpHandler((name, commands) => commands);
+				expect(cmdreg.help('ignored')).to.equal(cmdreg.commands);
+			});
+
+			it('Error thrown for non-function handler', function() {
+				expect(() => cmdreg.helpHandler({})).to.throw(
+					'func was [object Object], expected [object Function]'
+				);
+			});
+
+			it('Error from handler bubbles up', function() {
+				cmdreg.helpHandler(() => {
+					throw new Error('This thing broke');
+				});
+				expect(() => cmdreg.help('ignored')).to.throw('This thing broke');
+			});
+		});
+
+		describe('Command execution', function() {
+
+			it('Return value from command bubbles up', function() {
+				const cmdreg = new CommandRegistry()
+					.add(new Command('com1')
+						.handler(() => 'My cool thing')
+					);
+				expect(cmdreg.execute('com1')).to.equal('My cool thing');
+			});
+
+			it('Error thrown from handler bubbles up', function() {
+				const cmdreg = new CommandRegistry()
+					.add(new Command('test')
+						.handler(() => {
+							throw new Error('Bad things happened');
+						})
+					);
+				expect(() => cmdreg.execute('test')).to.throw('Bad things happened');
+			});
+		});
+	});
 });

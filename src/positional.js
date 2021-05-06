@@ -6,7 +6,9 @@
  * License v3.0. See LICENSE or <https://www.gnu.org/licenses/agpl-3.0.en.html>
  * for more information.
  ******************************************************************************/
+// Also, this will likely end up getting pulled into its own library for reuse.
 
+// TODO we should support async functions for handlers and preprocessors
 
 /**
  * Represents a single positional argument for a command.
@@ -310,6 +312,144 @@ class Command {
 	}
 }
 
+/**
+ * A registry containing commands. Can take in command strings and delegate them
+ * to the appropriate commands.
+ */
+class CommandRegistry {
+
+	/**
+	 * Sets up the Map that contains all of the commands.
+	 */
+	constructor() {
+		this.commands = new Map();
+		this._default_handler = null;
+	}
+
+	/**
+	 * Adds a new command to the registry. All commands must have unique names.
+	 * Returns this so we can chain calls.
+	 */
+	add(command) {
+		if (!(command instanceof Command)) {
+			throw new Error(`command was ${type(command)}, expected [object Command]`);
+		}
+		if (this.commands.has(command._name)) {
+			throw new Error(`Defined duplicate command '${command._name}'`);
+		}
+
+		this.commands.set(command._name, command);
+		return this;
+	}
+
+	/**
+	 * Sets up a handler function for unrecognized commands (or the default
+	 * handler, if none is specified. See <code>defaultDefaultHandler</code>).
+	 * If this is not set, unknown commands are a no-op.
+	 *
+	 * NOTE the default handler function signature is slightly different from
+	 * other handlers. Default handlers receive an object containing the
+	 * result from <code>Command.parse</code>.
+	 *
+	 * Returns this so we can chain calls.
+	 */
+	defaultHandler(func) {
+		func = func || defaultDefaultHandler;
+
+		if (!isFunction(func)) {
+			throw new Error(`func was ${type(func)}, expected [object Function]`);
+		}
+
+		this._default_handler = func;
+		return this;
+	}
+
+	/**
+	 * Executes the command that corresponds to the given string. If the
+	 * referenced command doesn't exist, we fall back on the default command
+	 * handler, if there is one. If the command name is 'help', we use the
+	 * special help command handler.
+	 * In all cases, arbitrary additional values can be forwarded to the
+	 * handlers.
+	 */
+	execute(string, ...forward) {
+		const cmd = Command.split(string);
+		if (cmd.name === 'help') {
+			return this.help(cmd.parts[0], ...forward);
+		} else if (this.commands.has(cmd.name)) {
+			return this.commands.get(cmd.name).execute(cmd.parts, ...forward);
+		} else if (this._default_handler) {
+			return this._default_handler(cmd, ...forward);
+		}
+	}
+
+	/**
+	 * Executes the help handler. In order for this function to do anything,
+	 * <code>helpHandler</code> needs to have been called, otherwise this
+	 * function is a no-op.
+	 * Returns the help handler's return value. Additional arbitrary arguments
+	 * will be forwarded to the help handler.
+	 */
+	help(name, ...forward) {
+		const helpcmd = this.commands.get('help');
+		if (helpcmd) {
+			const parts = [name];
+			return helpcmd.execute(parts, this.commands, ...forward);
+		}
+	}
+
+	/**
+	 * Sets up a help command using the given handler function (or the default
+	 * handler, if none is specified. See <code>defaultHelpHandler</code>).
+	 *
+	 * NOTE the help handler function signature is slightly different from other
+	 * handlers. Help handlers get the command Map object as a second
+	 * parameter.
+	 *
+	 * Returns this so we can chain calls.
+	 */
+	helpHandler(func) {
+		func = func || defaultHelpHandler;
+
+		if (!this.commands.has('help')) {
+			this.add(new Command('help')
+				.description('Generates command help text')
+				.addArgSet([])
+				.addArgSet([new Argument('command')])
+				.handler(func)
+			);
+		}
+
+		this.commands.get('help').handler(func);
+		return this;
+	}
+}
+
+/**
+ * The default handler for unrecognized commands. Simply throws an error.
+ */
+function defaultDefaultHandler(args) {
+	throw new Error(`Unrecognized command '${args.name}'`);
+}
+
+/**
+ * The default handler for the help command. Returns the usage for the given
+ * commnd name. If no command name is given, returns the usage for all known
+ * commands, separated by newlines.
+ */
+function defaultHelpHandler(args, commands) {
+	if (args.command) {
+		const cmd = commands.get(args.command);
+		if (cmd) {
+			return cmd.usage();
+		} else {
+			return `Unknown command '${args.command}'`;
+		}
+	} else {
+		return Array.from(commands.values()).map(cmd => cmd.usage()).join('\n');
+	}
+}
+
 // This is probably why TypeScript was created.
 function isBoolean(value) {
 	return type(value) === '[object Boolean]';
@@ -330,4 +470,5 @@ function type(value) {
 module.exports = {
 	Argument,
 	Command,
+	CommandRegistry,
 };
