@@ -55,6 +55,12 @@ describe('Positional command parser', function() {
 					"args was [object Boolean], expected [object String] or 'Array<string>'"
 				);
 			});
+
+			it('Non-boolean optional flag', function() {
+				expect(() => new Argument('test').optional({})).to.throw(
+					'enabled was [object Object], expected [object Boolean]'
+				);
+			});
 		});
 
 		describe('Parsing and preprocessing', function() {
@@ -93,6 +99,25 @@ describe('Positional command parser', function() {
 				expect(arg.parse(['aaa', 'bbb'])).to.deep.equal(['aaax', 'bbbx']);
 			});
 
+			it('Optional argument can be omitted', function() {
+				const arg = new Argument('test').optional(true);
+				expect(() => arg.parse()).to.not.throw;
+				expect(arg.parse()).to.be.null;
+			});
+
+			it('Varargs can be optional too', function() {
+				const arg = new Argument('test').varargs(true).optional(true);
+				expect(() => arg.parse()).to.not.throw;
+				expect(arg.parse()).to.be.an('array').that.is.empty;
+			});
+
+			it('Varargs can take single arguments', function() {
+				const arg = new Argument('test')
+					.varargs(true)
+					.preprocess(val => val + 'thing');
+				expect(arg.parse('my')).to.deep.equal(['mything']);
+			});
+
 			function validator(arg) {
 				if (arg.startsWith('x')) {
 					throw new Error('x is bad');
@@ -115,6 +140,20 @@ describe('Positional command parser', function() {
 					"Bad <test>(3) value 'xcc': x is bad"
 				);
 			});
+
+			it('Error thrown for missing required argument', function() {
+				const arg = new Argument('test');
+				expect(() => arg.parse()).to.throw(
+					'Too few arguments! Missing argument <test>'
+				);
+			});
+
+			it('Error thrown for missing at least one required varargs', function() {
+				const arg = new Argument('test').varargs(true);
+				expect(() => arg.parse()).to.throw(
+					'Too few arguments! Argument <test> requires at least one value'
+				);
+			});
 		});
 
 		describe('Usage strings', function() {
@@ -124,9 +163,19 @@ describe('Positional command parser', function() {
 				expect(arg.usage()).to.equal('<test>');
 			});
 
+			it('Optional arguments marked differently', function() {
+				const arg = new Argument('test').optional(true);
+				expect(arg.usage()).to.equal('[test]');
+			});
+
 			it('Varargs shows argument name multiple times', function() {
 				const arg = new Argument('test').varargs(true);
-				expect(arg.usage()).to.equal('<test_1> <test_2> ... <test_n>');
+				expect(arg.usage()).to.equal('<test_1> [test_2] ... [test_n]');
+			});
+
+			it('Optional varargs marked differently', function() {
+				const arg = new Argument('test').varargs(true).optional(true);
+				expect(arg.usage()).to.equal('[test_1] [test_2] ... [test_n]');
 			});
 		});
 	});
@@ -220,7 +269,7 @@ describe('Positional command parser', function() {
 						new Argument('rest').varargs(true),
 					]);
 				expect(cmd.usage()).to.equal(
-					'test <first> <rest_1> <rest_2> ... <rest_n>'
+					'test <first> <rest_1> [rest_2] ... [rest_n]'
 				);
 				expect(cmd.getDescription()).to.equal('Hello');
 			});

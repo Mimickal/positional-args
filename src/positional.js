@@ -27,8 +27,25 @@ class Argument {
 		}
 
 		this._name = name;
+		this._optional = false;
 		this._preprocessor = null;
 		this._varargs = false;
+	}
+
+	/**
+	 * Marks this argument as optional. Only the last argument in an argument
+	 * list may be optional.
+	 * Returns this so we can chain calls.
+	 */
+	optional(enabled) {
+		if (!isBoolean(enabled)) {
+			throw new Error(
+				`enabled was ${type(enabled)}, expected [object Boolean]`
+			);
+		}
+
+		this._optional = enabled;
+		return this;
 	}
 
 	/**
@@ -36,45 +53,74 @@ class Argument {
 	 * If the preprocessor command throws an error, this function will re-throw
 	 * it with additional context.
 	 * If no preprocessor is defined, the args are returned as given.
+	 * If a single (non-array) value is given for a varargs argument, an array
+	 * will still be returned.
 	 */
 	parse(args) {
-		// TODO async preprocessor function?
-		if (!isString(args) && !Array.isArray(args)) {
+		if (args != null && !isString(args) && !Array.isArray(args)) {
 			throw new Error(
 				`args was ${type(args)}, expected [object String] or 'Array<string>'`
 			);
 		}
 
-		const applyPreprocessor = (input, index) => {
-			if (!this._preprocessor) {
-				return input;
-			}
+		if (this._varargs) {
+			return this._parseVarargs(args);
+		} else {
+			return this._parseSingle(args);
+		}
+	}
 
-			// Save a copy so processor can't molest the value
-			const copy = `${input}`;
-
-			try {
-				const returned = this._preprocessor(input);
-				return returned === undefined ? copy : returned;
-			}
-			catch (err) {
-				let arg_id = `<${this._name}>`;
-
-				// Give a little more context for varargs errors
-				if (index != null) { // So index 0 is still true
-					arg_id += `(${index + 1})`;
-				}
-
-				throw new Error(
-					`Bad ${arg_id} value '${copy}': ${err.message}`
-				);
-			}
+	/// Branch for parsing a single argument
+	_parseSingle(arg) {
+		if (arg == null && !this._optional) {
+			throw new Error(`Too few arguments! Missing argument <${this._name}>`);
 		}
 
-		if (this._varargs && Array.isArray(args)) {
-			return args.map(applyPreprocessor);
-		} else {
-			return applyPreprocessor(args);
+		return this._applyPreprocessor(arg);
+	}
+
+	/// Branch for parsing multiple (varargs) arguments
+	_parseVarargs(args) {
+		if (args == null && !this._optional) {
+			throw new Error('Too few arguments! ' +
+				`Argument <${this._name}> requires at least one value.`
+			);
+		}
+
+		if (args == null) {
+			args = [];
+		} else if (!Array.isArray(args)) {
+			args = [args];
+		}
+
+		return args.map((val, index) => this._applyPreprocessor(val, index));
+	}
+
+	/// Shared logic for applying the preprocessor function to an argument
+	_applyPreprocessor(input, index) {
+		if (!input && this._optional) {
+			// Important so this argument still shows up in the final hash
+			return null;
+		}
+		if (!this._preprocessor) {
+			return input;
+		}
+
+		try {
+			const processed = this._preprocessor(input);
+			return processed === undefined ? input : processed;
+		}
+		catch (err) {
+			let arg_id = `<${this._name}>`;
+
+			// Give a little more context for varargs errors
+			if (index != null) { // So index 0 is still true
+				arg_id += `(${index + 1})`;
+			}
+
+			throw new Error(
+				`Bad ${arg_id} value '${input}': ${err.message}`
+			);
 		}
 	}
 
@@ -85,6 +131,7 @@ class Argument {
 	 * The return value of the given function will be forwarded to the command
 	 * handler. If the given function does not return anything, the argument
 	 * will be forwarded as-is.
+	 * Returns this so we can chain calls.
 	 */
 	preprocess(func) {
 		if (!isFunction(func)) {
@@ -99,10 +146,14 @@ class Argument {
 	 * Returns a human-readable string describing this argument.
 	 */
 	usage() {
+		// b for bracket
+		const lb = this._optional ? '[' : '<';
+		const rb = this._optional ? ']' : '>';
+
 		if (this._varargs) {
-			return `<${this._name}_1> <${this._name}_2> ... <${this._name}_n>`;
+			return `${lb}${this._name}_1${rb} [${this._name}_2] ... [${this._name}_n]`;
 		} else {
-			return `<${this._name}>`;
+			return `${lb}${this._name}${rb}`;
 		}
 	}
 
@@ -110,6 +161,7 @@ class Argument {
 	 * Allows this argument to accept multiple values. Each individual argument
 	 * will be subject to the preprocessor, if one is given.
 	 * A varargs argument must be the last argument for a command.
+	 * Returns this so we can chain calls.
 	 */
 	varargs(enabled) {
 		if (!isBoolean(enabled)) {
