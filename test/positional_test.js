@@ -290,11 +290,20 @@ describe('Positional command parser', function() {
 				).to.throw(err);
 			});
 
+			const pre = 'Ambiguous argument sets';
+
 			it('Exception for multiple arg sets with same length', function() {
 				expect(() => new Command('test')
 					.addArgSet([new Argument('test1'), new Argument('test2')])
 					.addArgSet([new Argument('test3'), new Argument('test4')])
-				).to.throw('Multiple argument sets of length 2');
+				).to.throw(`${pre}: Multiple sets of length 2`);
+			});
+
+			it('Exception thrown if multiple arg sets have varargs', function() {
+				expect(() => new Command('test')
+					.addArgSet([new Argument('var').varargs(true)])
+					.addArgSet([new Argument('test'), new Argument('var').varargs(true)])
+				).to.throw(`${pre}: Multiple sets containing varargs`);
 			});
 
 			it('Exception thrown if non-last varargs argument', function() {
@@ -303,7 +312,20 @@ describe('Positional command parser', function() {
 						new Argument('test').varargs(true),
 						new Argument('last'),
 					])
-				).to.throw('Only the last argument may be a varargs argument');
+				).to.throw(`${pre}: varargs argument must be last in set`);
+			});
+
+			it('Exception thrown if varargs arg set is not the largest set',
+			function () {
+				const err = `${pre}: set containing varargs must be largest set`;
+				expect(() => new Command('test')
+					.addArgSet([new Argument('var').varargs(true)])
+					.addArgSet([new Argument('test1'), new Argument('test2')])
+				).to.throw(err);
+				expect(() => new Command('test')
+					.addArgSet([new Argument('test1'), new Argument('test2')])
+					.addArgSet([new Argument('test').varargs(true)])
+				).to.throw(err);
 			});
 		});
 

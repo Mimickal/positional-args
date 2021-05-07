@@ -215,23 +215,49 @@ class Command {
 
 	/**
 	 * Adds a set of arguments this command can accept.
-	 * Expects an array of <code>Argument</code> objects. A command cannot have
-	 * multiple argument sets with the same length. If an argument set contains
-	 * a varargs argument, the varargs argument must be the last one in the set.
+	 * Expects an array of <code>Argument</code> objects. Because all arguments
+	 * are positional, there are several rules to avoid ambiguous command
+	 * definitions:
+	 *  - A command must not have multiple argument sets with the same size.
+	 *  - A command must not have multiple argument sets with varargs arguments.
+	 *  - The varargs argument must be the last argument in an argument set.
+	 *  - The argument set containing the varargs argument must be the largest
+	 *    argument set.
+	 *
 	 * Returns this so we can chain calls.
 	 */
 	addArgSet(argset) {
 		if (!Array.isArray(argset) || !argset.every(arg => arg instanceof Argument)) {
 			throw new Error("argset must be of type 'Array<Argument>'");
 		}
+
+		const pre = 'Ambiguous argument sets';
+		const hasVarargs = (set) => set.find(arg => arg._varargs);
+		const allsets = [...this._argsets, argset];
+		const max_set_len = allsets.reduce(
+			(max, cur) => (cur.length > max ? cur.length : max), 0
+		);
+
 		if (this._argsets.find(set => set.length === argset.length)) {
-			throw new Error(`Multiple argument sets of length ${argset.length}`);
+			throw new Error(`${pre}: Multiple sets of length ${argset.length}`);
 		}
-		if (
-			argset.find(arg => arg._varargs) &&
-			argset.findIndex(arg => arg._varargs) !== argset.length - 1
+
+		if (hasVarargs(argset) &&
+			argset.findIndex(arg => arg._varargs) != argset.length - 1
 		) {
-			throw new Error('Only the last argument may be a varargs argument');
+			throw new Error(`${pre}: varargs argument must be last in set`);
+		}
+
+		if (allsets.filter(hasVarargs).length > 1) {
+			throw new Error(`${pre}: Multiple sets containing varargs`);
+		}
+
+		if (allsets.find(hasVarargs) && (
+				allsets.findIndex(hasVarargs) !==
+				allsets.findIndex(set => set.length === max_set_len)
+			)
+		) {
+			throw new Error(`${pre}: set containing varargs must be largest set`);
 		}
 
 		this._argsets.push(argset);
