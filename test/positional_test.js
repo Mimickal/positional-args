@@ -600,7 +600,8 @@ describe('Positional command parser', function() {
 			const usage =
 				'com1 <arg1>\n' +
 				'com2 <arg2>\n' +
-				'com2 <ver2> <ano>';
+				'com2 <ver2> <ano>\n' +
+				'help [command]';
 
 			it('No-op if no help handler defined', function() {
 				expect(cmdreg.help()).to.be.undefined;
