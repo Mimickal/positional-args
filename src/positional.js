@@ -220,6 +220,7 @@ class Command {
 	 * definitions:
 	 *  - A command must not have multiple argument sets with the same size.
 	 *  - A command must not have multiple argument sets with varargs arguments.
+	 *  - An optional argument must be the last argument in an argument set.
 	 *  - The varargs argument must be the last argument in an argument set.
 	 *  - The argument set containing the varargs argument must be the largest
 	 *    argument set.
@@ -240,6 +241,11 @@ class Command {
 
 		if (this._argsets.find(set => set.length === argset.length)) {
 			throw new Error(`${pre}: Multiple sets of length ${argset.length}`);
+		}
+
+		if (argset.find(arg => arg._optional) &&
+			argset.findIndex(arg => arg._optional) != argset.length - 1) {
+			throw new Error(`${pre}: optional argument must be last in set`);
 		}
 
 		if (hasVarargs(argset) &&
@@ -368,16 +374,9 @@ class Command {
 		argset.forEach(arg => {
 			if (arg._varargs) {
 				parsed[arg._name] = arg.parse(copy);
-				copy.length = 0; // Clear array
+				copy.length = 0; // Clear array to avoid below Error
 			} else {
-				const value = copy.shift();
-				if (value !== undefined) {
-					parsed[arg._name] = arg.parse(value);
-				} else {
-					throw new Error(
-						`Too few arguments! Missing argument <${arg._name}>`
-					);
-				}
+				parsed[arg._name] = arg.parse(copy.shift());
 			}
 		});
 
@@ -494,8 +493,7 @@ class CommandRegistry {
 		if (!this.commands.has('help')) {
 			this.add(new Command('help')
 				.description('Generates command help text')
-				.addArgSet([])
-				.addArgSet([new Argument('command')])
+				.addArgSet([new Argument('command').optional(true)])
 				.handler(func)
 			);
 		}

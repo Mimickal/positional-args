@@ -306,6 +306,15 @@ describe('Positional command parser', function() {
 				).to.throw(`${pre}: Multiple sets containing varargs`);
 			});
 
+			it('Exception thrown for non-last optional argument', function() {
+				expect(() => new Command('test')
+					.addArgSet([
+						new Argument('opt').optional(true),
+						new Argument('req'),
+					])
+				).to.throw(`${pre}: optional argument must be last in set`);
+			});
+
 			it('Exception thrown if non-last varargs argument', function() {
 				expect(() => new Command('test')
 					.addArgSet([
@@ -363,6 +372,17 @@ describe('Positional command parser', function() {
 					'aaa',
 					{x: 123},
 				]);
+			});
+
+			it('Optional argument can be omitted', function() {
+				const cmd = new Command('test')
+					.addArgSet([ new Argument('arg').optional(true) ])
+					.handler(args => args);
+				expect(() => cmd.execute([])).to.not.throw;
+				expect(cmd.execute([])).to.deep.equal({
+					_: [],
+					arg: null,
+				});
 			});
 
 			it('Error thrown for invalid argument bubbles up', function() {
