@@ -363,9 +363,11 @@ class Command {
 
 		// If this command has multiple argument sets, the above logic ensures
 		// we have the correct number of arguments once we get here.
+		// Also, all the validation in addArgSet guarantees varargs arguments
+		// only appear once, as the last argument in the largest set.
 		argset.forEach(arg => {
 			if (arg._varargs) {
-				parsed[arg._name] = copy.map(value => arg.parse(value));
+				parsed[arg._name] = arg.parse(copy);
 				copy.length = 0; // Clear array
 			} else {
 				const value = copy.shift();
