@@ -185,10 +185,9 @@ describe('Positional command parser', function() {
 		describe('(static) split command string', function() {
 
 			it('Command string split into object', function() {
-				expect(Command.split('mycmd arg1 arg2 arg3')).to.deep.equal({
-					name: 'mycmd',
-					parts: ['arg1', 'arg2', 'arg3'],
-				})
+				expect(Command.split('mycmd arg1 arg2 arg3')).to.deep.equal([
+					'mycmd', 'arg1', 'arg2', 'arg3'
+				])
 			});
 
 			it('Exception thrown for non-string values', function() {

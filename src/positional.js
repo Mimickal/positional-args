@@ -179,8 +179,8 @@ class Argument {
 class Command {
 
 	/**
-	 * Splits a string into a hash describing the command name and split command
-	 * parts.
+	 * Splits a command string into an array of parts. This essentially just
+	 * splits on whitespace.
 	 */
 	static split(string) {
 		if (!isString(string)) {
@@ -189,11 +189,7 @@ class Command {
 			);
 		}
 
-		let parts = string.split(/\s+/);
-		return {
-			name: parts.shift(),
-			parts: parts,
-		};
+		return string.split(/\s+/);
 	}
 
 	/**
@@ -452,13 +448,14 @@ class CommandRegistry {
 	 * handlers.
 	 */
 	execute(string, ...forward) {
-		const cmd = Command.split(string);
-		if (cmd.name === 'help') {
-			return this.help(cmd.parts[0], ...forward);
-		} else if (this.commands.has(cmd.name)) {
-			return this.commands.get(cmd.name).execute(cmd.parts, ...forward);
+		const parts = Command.split(string);
+		const cmd_name = parts.shift();
+		if (cmd_name === 'help') {
+			return this.help(parts[0], ...forward);
+		} else if (this.commands.has(cmd_name)) {
+			return this.commands.get(cmd_name).execute(parts, ...forward);
 		} else if (this._default_handler) {
-			return this._default_handler(cmd, ...forward);
+			return this._default_handler([cmd_name, ...parts], ...forward);
 		}
 	}
 
@@ -469,10 +466,10 @@ class CommandRegistry {
 	 * Returns the help handler's return value. Additional arbitrary arguments
 	 * will be forwarded to the help handler.
 	 */
-	help(name, ...forward) {
+	help(cmd_name, ...forward) {
 		const helpcmd = this.commands.get('help');
 		if (helpcmd) {
-			const parts = [name];
+			const parts = cmd_name ? [cmd_name] : [];
 			return helpcmd.execute(parts, this.commands, ...forward);
 		}
 	}
@@ -507,7 +504,8 @@ class CommandRegistry {
  * The default handler for unrecognized commands. Simply throws an error.
  */
 function defaultDefaultHandler(args) {
-	throw new Error(`Unrecognized command '${args.name}'`);
+	const cmd_name = args.shift();
+	throw new Error(`Unrecognized command '${cmd_name}'`);
 }
 
 /**
