@@ -384,6 +384,17 @@ describe('Positional command parser', function() {
 				});
 			});
 
+			it('Can execute command with string', function() {
+				const cmd = new Command('test')
+					.addArgSet([ new Argument('arg'), new Argument('aaa') ])
+					.handler(args => args);
+				expect(cmd.execute('hello goodbye')).to.deep.equal({
+					_: ['hello', 'goodbye'],
+					arg: 'hello',
+					aaa: 'goodbye',
+				});
+			});
+
 			it('Error thrown for invalid argument bubbles up', function() {
 				const cmd = new Command('test')
 					.addArgSet([ new Argument('xyz')

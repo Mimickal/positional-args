@@ -286,8 +286,14 @@ class Command {
 	 * The return value is whatever the handler function returns.
 	 * If this command does not have a handler, the arguments will still be
 	 * proecessed and validation will still be applied.
+	 * This can also take command strings so commands can be executed
+	 * independently of the CommandRegistry.
 	 */
 	execute(parts, ...forward) {
+		if (isString(parts)) {
+			parts = Command.split(parts);
+		}
+
 		const parsed_parts = this.parse(parts);
 		if (this._handler) {
 			try {
