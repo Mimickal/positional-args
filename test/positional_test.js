@@ -226,6 +226,12 @@ describe('Positional command parser', function() {
 					'func was [object Object], expected [object Function]'
 				);
 			});
+
+			it('Non-function error handler', function() {
+				expect(() => new Command('test').error({})).to.throw(
+					'func was [object Object], expected [object Function]'
+				);
+			});
 		});
 
 		describe('Usage strings', function() {
@@ -411,6 +417,45 @@ describe('Positional command parser', function() {
 				expect(() => cmd.execute()).to.throw(
 					'Command failed: Handler broke'
 				);
+			});
+
+			const cmd = new Command('test')
+				.addArgSet([ new Argument('arg')
+					.preprocess(() => { throw new Error('preprocess err'); })
+				])
+				.handler(() => { throw new Error('handler err'); });
+
+			it('Error handler catches error instead of throwing', function() {
+				let capture;
+				cmd.error(err => { capture = err; });
+
+				expect(() => cmd.execute()).to.not.throw;
+				cmd.execute();
+				expect(capture).to.be.an.instanceof(Error);
+				expect(capture.message).to.equal(
+					'Too few arguments! Missing argument <arg>'
+				);
+
+				expect(() => cmd.execute(['abc'])).to.not.throw;
+				cmd.execute(['abc']);
+				expect(capture).to.be.an.instanceof(Error);
+				expect(capture.message).to.equal(
+					"Bad <arg> value 'abc': preprocess err"
+				);
+			});
+
+			it('Forward arbitrary values to handler', function() {
+				let capture;
+				cmd.error((err, val1) => { capture = val1; });
+
+				cmd.execute([], 'arbitrary data');
+				expect(capture).to.equal('arbitrary data');
+			});
+
+			it('Command execution forwards handler return value', function() {
+				cmd.error(err => 'some returned value');
+
+				expect(cmd.execute()).to.equal('some returned value');
 			});
 		});
 

@@ -206,6 +206,7 @@ class Command {
 		this._name = name;
 		this._argsets = [];
 		this._description = null;
+		this._err_handler = null;
 		this._handler = null;
 	}
 
@@ -280,6 +281,22 @@ class Command {
 	}
 
 	/**
+	 * Sets the function to execute when an error is thrown while executing the
+	 * command. If this is not set, errors are thrown to the caller instead.
+	 * The handler takes the error, along with any arguments originally
+	 * forwarded to the handler.
+	 * Returns this so we can chain calls.
+	 */
+	error(func) {
+		if (!isFunction(func)) {
+			throw new Error(`func was ${type(func)}, expected [object Function]`);
+		}
+
+		this._err_handler = func;
+		return this;
+	}
+
+	/**
 	 * Parses the given positional argument array, then passes the resulting
 	 * structure into this command's handler function. Additional values can be
 	 * passed in to forward them directly to the handler.
@@ -294,14 +311,32 @@ class Command {
 			parts = Command.split(parts);
 		}
 
-		const parsed_parts = this.parse(parts);
+		let parsed_parts;
+		try {
+			parsed_parts = this.parse(parts);
+		} catch (err) {
+			return this._executeHandleError(err, ...forward);
+		}
+
 		if (this._handler) {
 			try {
 				return this._handler(parsed_parts, ...forward);
 			} catch (err) {
-				throw new Error(`Command failed: ${err.message}`);
+				return this._executeHandleError(
+					new Error(`Command failed: ${err.message}`),
+					...forward
+				);
 			}
 		}
+	}
+
+	// De-duplicated logic for passing execution errors to the error handler
+	_executeHandleError(err, ...forward) {
+		if (this._err_handler) {
+			return this._err_handler(err, ...forward);
+		}
+
+		throw err;
 	}
 
 	/**
