@@ -73,7 +73,9 @@ class Argument {
 	/// Branch for parsing a single argument
 	_parseSingle(arg) {
 		if (arg == null && !this._optional) {
-			throw new Error(`Too few arguments! Missing argument <${this._name}>`);
+			throw new CommandError(
+				`Too few arguments! Missing argument <${this._name}>`
+			);
 		}
 
 		return this._applyPreprocessor(arg);
@@ -82,7 +84,7 @@ class Argument {
 	/// Branch for parsing multiple (varargs) arguments
 	_parseVarargs(args) {
 		if (args == null && !this._optional) {
-			throw new Error('Too few arguments! ' +
+			throw new CommandError('Too few arguments! ' +
 				`Argument <${this._name}> requires at least one value.`
 			);
 		}
@@ -118,9 +120,9 @@ class Argument {
 				arg_id += `(${index + 1})`;
 			}
 
-			throw new Error(
-				`Bad ${arg_id} value '${input}': ${err.message}`
-			);
+			// So we can rethrow with the same Error class
+			err.message = `Bad ${arg_id} value '${input}': ${err.message}`;
+			throw err;
 		}
 	}
 
@@ -322,10 +324,9 @@ class Command {
 			try {
 				return this._handler(parsed_parts, ...forward);
 			} catch (err) {
-				return this._executeHandleError(
-					new Error(`Command failed: ${err.message}`),
-					...forward
-				);
+				// So we can rethrow with the same Error class
+				err.message = `Command failed: ${err.message}`;
+				return this._executeHandleError(err, ...forward);
 			}
 		}
 	}
@@ -398,7 +399,7 @@ class Command {
 			argset = this._argsets.find(set => set.length === copy.length);
 
 			if (!argset) {
-				throw new Error(
+				throw new CommandError(
 					'Wrong number of arguments! See command help for details'
 				);
 			}
@@ -418,13 +419,29 @@ class Command {
 		});
 
 		if (copy.length > 0) {
-			throw new Error(
+			throw new CommandError(
 				'Too many arguments! Extras: ' +
 				copy.map(val => `'${val}'`).join(', ')
 			);
 		}
 
 		return parsed;
+	}
+}
+
+/**
+ * Gives us an object oriented way to catch known errors thrown during the
+ * parsing phase of command execution. This allows us to pass parsing errors to
+ * a separate handler, while allowing user-provided code to still throw its own
+ * exceptions.
+ *
+ * It might not be a bad idea to have your Argument preprocessor functions use
+ * this for throwing errors.
+ */
+class CommandError extends Error {
+	constructor(message) {
+		super(message);
+		this.is_command_error = true;
 	}
 }
 
@@ -587,5 +604,6 @@ function type(value) {
 module.exports = {
 	Argument,
 	Command,
+	CommandError,
 	CommandRegistry,
 };

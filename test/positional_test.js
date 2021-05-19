@@ -11,6 +11,7 @@ const expect = require('chai').expect;
 const pp = require('../src/positional');
 const Argument = pp.Argument;
 const Command = pp.Command;
+const CommandError = pp.CommandError;
 const CommandRegistry = pp.CommandRegistry;
 
 describe('Positional command parser', function() {
@@ -120,13 +121,14 @@ describe('Positional command parser', function() {
 
 			function validator(arg) {
 				if (arg.startsWith('x')) {
-					throw new Error('x is bad');
+					throw new RangeError('x is bad');
 				}
 			}
 
 			it('Error thrown in preprocessor bubbles up', function() {
 				const arg = new Argument('test').preprocess(validator);
 				expect(() => arg.parse('xyz')).to.throw(
+					RangeError,
 					"Bad <test> value 'xyz': x is bad"
 				);
 			});
@@ -137,6 +139,7 @@ describe('Positional command parser', function() {
 					.varargs(true);
 
 				expect(() => arg.parse(['aaa', 'bxb', 'xcc'])).to.throw(
+					RangeError,
 					"Bad <test>(3) value 'xcc': x is bad"
 				);
 			});
@@ -144,6 +147,7 @@ describe('Positional command parser', function() {
 			it('Error thrown for missing required argument', function() {
 				const arg = new Argument('test');
 				expect(() => arg.parse()).to.throw(
+					CommandError,
 					'Too few arguments! Missing argument <test>'
 				);
 			});
@@ -151,6 +155,7 @@ describe('Positional command parser', function() {
 			it('Error thrown for missing at least one required varargs', function() {
 				const arg = new Argument('test').varargs(true);
 				expect(() => arg.parse()).to.throw(
+					CommandError,
 					'Too few arguments! Argument <test> requires at least one value'
 				);
 			});
@@ -484,7 +489,10 @@ describe('Positional command parser', function() {
 				it('Error thrown for too many args', function() {
 					expect(() =>
 						cmd.parse(['hello', 'goodbye', 'things', 'stuff'])
-					).to.throw("Too many arguments! Extras: 'things', 'stuff'");
+					).to.throw(
+						CommandError,
+						"Too many arguments! Extras: 'things', 'stuff'"
+					);
 				});
 			});
 
@@ -518,18 +526,21 @@ describe('Positional command parser', function() {
 
 				it('Error thrown if no argset matches (too few args)', function() {
 					expect(() => cmd.parse([])).to.throw(
+						CommandError,
 						'Wrong number of arguments! See command help for details'
 					);
 				});
 
 				it('Error thrown if no argset matches (middle args)', function() {
 					expect(() => cmd.parse(['xx', 'yy'])).to.throw(
+						CommandError,
 						'Wrong number of arguments! See command help for details'
 					);
 				});
 
 				it('Error thrown if no argset matches (too many args)', function() {
 					expect(() => cmd.parse(['xx', 'yy', 'zz', 'ii', 'jj'])).to.throw(
+						CommandError,
 						'Wrong number of arguments! See command help for details'
 					);
 				});
@@ -553,6 +564,23 @@ describe('Positional command parser', function() {
 					});
 				});
 			});
+		});
+	});
+
+	describe('CommandError', function() {
+		const err = new CommandError('hello');
+
+		it('CommandError is instanceof Error', function() {
+			expect(err).to.be.instanceof(CommandError);
+			expect(err).to.be.instanceof(Error);
+		});
+
+		it('CommandError has boolean set', function() {
+			expect(err.is_command_error).to.be.true;
+		});
+
+		it('CommandError still behaves like Error', function() {
+			expect(err.message).to.equal('hello');
 		});
 	});
 
