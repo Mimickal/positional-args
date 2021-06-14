@@ -6,7 +6,9 @@
  * License v3.0. See LICENSE or <https://www.gnu.org/licenses/agpl-3.0.en.html>
  * for more information.
  ******************************************************************************/
-const expect = require('chai').expect;
+const chai = require('chai');
+chai.use(require('chai-as-promised'));
+const expect = chai.expect;
 
 const pp = require('../src/positional');
 const Argument = pp.Argument;
@@ -36,12 +38,6 @@ describe('Positional command parser', function() {
 				expect(() => new Argument('')).to.throw('name was empty string');
 			});
 
-			it('Non-boolean varargs flag', function() {
-				expect(() => new Argument('test').varargs({})).to.throw(
-					'enabled was [object Object], expected [object Boolean]'
-				);
-			});
-
 			it('Non-function preprocessor', function () {
 				expect(() => new Argument('test').preprocess({})).to.throw(
 					'func was [object Object], expected [object Function]'
@@ -49,16 +45,29 @@ describe('Positional command parser', function() {
 			});
 
 			it('Non-string and non-Array args', function() {
-				expect(() => new Argument('test').parse({})).to.throw(
+				const arg = new Argument('test');
+				expect(() => arg.parse({})).to.throw(
 					"args was [object Object], expected [object String] or 'Array<string>'"
 				);
-				expect(() => new Argument('test').parse(true)).to.throw(
+				expect(() => arg.parse(true)).to.throw(
 					"args was [object Boolean], expected [object String] or 'Array<string>'"
+				);
+			});
+
+			it('Non-boolean asynchronous flag', function() {
+				expect(() => new Argument('test').asynchronous({})).to.throw(
+					'enabled was [object Object], expected [object Boolean]'
 				);
 			});
 
 			it('Non-boolean optional flag', function() {
 				expect(() => new Argument('test').optional({})).to.throw(
+					'enabled was [object Object], expected [object Boolean]'
+				);
+			});
+
+			it('Non-boolean varargs flag', function() {
+				expect(() => new Argument('test').varargs({})).to.throw(
 					'enabled was [object Object], expected [object Boolean]'
 				);
 			});
@@ -71,10 +80,23 @@ describe('Positional command parser', function() {
 				expect(arg.parse('hello')).to.equal('hello');
 			});
 
-			it('Varargs value array passed through without preprocessor', function() {
+			it('Value passed through without preprocessor (async)', function() {
+				const arg = new Argument('test').asynchronous(true);
+				return expect(arg.parse('hello')).to.eventually.equal('hello');
+			});
+
+			it('Value passed through without preprocessor (varargs)', function() {
 				const arg = new Argument('test').varargs(true);
 				const exp = ['hello', 'goodbye'];
 				expect(arg.parse(exp)).to.deep.equal(exp);
+			});
+
+			it('Value passed through without preprocessor (varargs) (async)', function() {
+				const arg = new Argument('test')
+					.asynchronous(true)
+					.varargs(true);
+				const exp = ['hello', 'goodbye'];
+				return expect(arg.parse(exp)).to.eventually.deep.equal(exp);
 			});
 
 			it('Preprocessor automatically forwards value', function() {
@@ -83,33 +105,88 @@ describe('Positional command parser', function() {
 				expect(arg.parse('thing')).to.equal('thing');
 			});
 
+			it('Preprocessor automatically forwards value (async)', function() {
+				const arg = new Argument('test')
+					.asynchronous(true)
+					.preprocess(async val => { /*no-op*/ });
+				return expect(arg.parse('thing')).to.eventually.equal('thing');
+			});
+
+			it('Preprocessor automatically forwards value (varargs) (async)', function() {
+				const arg = new Argument('test')
+					.asynchronous(true)
+					.preprocess(async val => { /*no-op*/ })
+					.varargs(true);
+				return expect(arg.parse(['aaa', 'bbb']))
+					.to.eventually.deep.equal(['aaa', 'bbb']);
+			});
+
+			it('Parse always returns Promise in async mode', function() {
+				const arg = new Argument('test')
+					.asynchronous(true)
+					.preprocess(val => 123); // NOTE: not async
+				return expect(arg.parse('aaa'))
+					.to.be.instanceof(Promise)
+					.and.eventually.equal(123);
+			});
+
 			it('Preprocessor can modify value', function() {
 				const arg = new Argument('test').preprocess(val => val + 'x');
 				expect(arg.parse('thing')).to.equal('thingx');
 			});
 
-			it('Preprocessor applied to all varargs values', function() {
+			it('Preprocessor can modify value (async)', function() {
 				const arg = new Argument('test')
-					.varargs(true)
-					.preprocess(val => {
-						if (val.startsWith('x')) {
-							throw new Error('This shouldn\'t happen');
-						}
-						return val + 'x';
-					});
+					.asynchronous(true)
+					.preprocess(async val => val + 'x');
+				return expect(arg.parse('thing')).to.eventually.equal('thingx');
+			});
+
+			it('Preprocessor can modify value (varargs)', function() {
+				const arg = new Argument('test')
+					.preprocess(val => val + 'x')
+					.varargs(true);
 				expect(arg.parse(['aaa', 'bbb'])).to.deep.equal(['aaax', 'bbbx']);
 			});
 
+			it('Preprocessor can modify value (varargs) (async)', function() {
+				const arg = new Argument('test')
+					.asynchronous(true)
+					.preprocess(async val => val + 'x')
+					.varargs(true);
+				return expect(arg.parse(['aaa', 'bbb']))
+					.to.eventually.deep.equal(['aaax', 'bbbx']);
+			});
+
 			it('Optional argument can be omitted', function() {
-				const arg = new Argument('test').optional(true);
+				const arg = new Argument('test')
+					.optional(true);
 				expect(() => arg.parse()).to.not.throw;
 				expect(arg.parse()).to.be.null;
 			});
 
-			it('Varargs can be optional too', function() {
-				const arg = new Argument('test').varargs(true).optional(true);
+			it('Optional argument can be omitted (async)', function() {
+				const arg = new Argument('test')
+					.asynchronous(true)
+					.optional(true);
+				return expect(arg.parse()).to.eventually.be.null;
+			});
+
+			it('Optional argument can be omitted (varargs)', function() {
+				const arg = new Argument('test')
+					.optional(true)
+					.varargs(true);
 				expect(() => arg.parse()).to.not.throw;
-				expect(arg.parse()).to.be.an('array').that.is.empty;
+				expect(arg.parse()).be.instanceof(Array).that.is.empty;
+			});
+
+			it('Optional argument can be omitted (varargs) (async)', function() {
+				const arg = new Argument('test')
+					.asynchronous(true)
+					.optional(true)
+					.varargs(true);
+				return expect(arg.parse())
+					.to.eventually.be.instanceof(Array).that.is.empty;
 			});
 
 			it('Varargs can take single arguments', function() {
@@ -133,12 +210,32 @@ describe('Positional command parser', function() {
 				);
 			});
 
-			it('Error thrown in preprocessor bubbles up for varargs', function() {
+			it('Error thrown in preprocessor bubbles up (async)', function() {
+				const arg = new Argument('test')
+					.asynchronous(true)
+					.preprocess(validator); // Given func not async
+				return expect(arg.parse('xyz')).to.be.rejectedWith(
+					RangeError,
+					"Bad <test> value 'xyz': x is bad"
+				);
+			});
+
+			it('Error thrown in preprocessor bubbles up (varargs)', function() {
 				const arg = new Argument('test')
 					.preprocess(validator)
 					.varargs(true);
-
 				expect(() => arg.parse(['aaa', 'bxb', 'xcc'])).to.throw(
+					RangeError,
+					"Bad <test>(3) value 'xcc': x is bad"
+				);
+			});
+
+			it('Error thrown in preprocessor bubbles up (varargs) (async)', function() {
+				const arg = new Argument('test')
+					.asynchronous(true)
+					.preprocess(validator)
+					.varargs(true);
+				return expect(arg.parse(['aaa', 'bxb', 'xcc'])).to.be.rejectedWith(
 					RangeError,
 					"Bad <test>(3) value 'xcc': x is bad"
 				);
@@ -152,9 +249,27 @@ describe('Positional command parser', function() {
 				);
 			});
 
-			it('Error thrown for missing at least one required varargs', function() {
+			it('Error thrown for missing required argument (async)', function() {
+				const arg = new Argument('test').asynchronous(true);
+				expect(arg.parse()).to.be.rejectedWith(
+					CommandError,
+					'Too few arguments! Missing argument <test>'
+				);
+			});
+
+			it('Error thrown for missing required argument (varargs)', function() {
 				const arg = new Argument('test').varargs(true);
 				expect(() => arg.parse()).to.throw(
+					CommandError,
+					'Too few arguments! Argument <test> requires at least one value'
+				);
+			});
+
+			it('Error thrown for missing required argument (varargs) (async)', function() {
+				const arg = new Argument('test')
+					.asynchronous(true)
+					.varargs(true);
+				return expect(arg.parse()).to.be.rejectedWith(
 					CommandError,
 					'Too few arguments! Argument <test> requires at least one value'
 				);

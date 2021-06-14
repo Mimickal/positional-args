@@ -4,11 +4,14 @@
   "description": "Positional argument parser",
   "main": "index.js",
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "test:coverage": "nyc --reporter=text mocha"
   },
   "devDependencies": {
     "chai": "^4.3.4",
-    "mocha": "^8.3.2"
+    "chai-as-promised": "^7.1.1",
+    "mocha": "^8.3.2",
+    "nyc": "^15.1.0"
   },
   "keywords": [
     "command-line",

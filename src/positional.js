@@ -8,8 +8,6 @@
  ******************************************************************************/
 // Also, this will likely end up getting pulled into its own library for reuse.
 
-// TODO we should support async functions for handlers and preprocessors
-
 /**
  * Represents a single positional argument for a command.
  */
@@ -26,10 +24,27 @@ class Argument {
 			throw new Error('name was empty string');
 		}
 
+		this._async = false;
 		this._name = name;
 		this._optional = false;
 		this._preprocessor = null;
 		this._varargs = false;
+	}
+
+	/**
+	 * Enables/disables async mode. In async mode, Promises returned from
+	 * preprocessors will be resolved automatically. This means
+	 * <code>parse</code> will also return a Promise.
+	 *
+	 * Returns this so we can chain calls.
+	 */
+	asynchronous(enabled) {
+		if (!isBoolean(enabled)) {
+			throw new Error(`enabled was ${type(enabled)}, expected [object Boolean]`);
+		}
+
+		this._async = enabled;
+		return this;
 	}
 
 	/**
@@ -50,11 +65,17 @@ class Argument {
 
 	/**
 	 * Parses the given arg(s) using this Argument's preprocessor function.
+	 *
 	 * If the preprocessor command throws an error, this function will re-throw
 	 * it with additional context.
+	 *
 	 * If no preprocessor is defined, the args are returned as given.
+	 *
 	 * If a single (non-array) value is given for a varargs argument, an array
 	 * will still be returned.
+	 *
+	 * In async mode, this will always return a Promise that resolves to the
+	 * parsed values.
 	 */
 	parse(args) {
 		if (args != null && !isString(args) && !Array.isArray(args)) {
@@ -63,6 +84,18 @@ class Argument {
 			);
 		}
 
+		if (this._async) {
+			// Will auto-reject if this throws
+			return new Promise((resolve, reject) => {
+				resolve(this._parseStart(args));
+			});
+		} else {
+			return this._parseStart(args);
+		}
+	}
+
+	/// Break this out so we can optionally async wrap
+	_parseStart(args) {
 		if (this._varargs) {
 			return this._parseVarargs(args);
 		} else {
@@ -95,10 +128,13 @@ class Argument {
 			args = [args];
 		}
 
-		return args.map((val, index) => this._applyPreprocessor(val, index));
+		// Resolve individual Promises in async mode so we can return an array
+		// of values instead of an array of Promises.
+		const vals = args.map((val, index) => this._applyPreprocessor(val, index));
+		return this._async ? Promise.all(vals) : vals;
 	}
 
-	/// Shared logic for applying the preprocessor function to an argument
+	/// Shared logic for applying the preprocessor function to an argument.
 	_applyPreprocessor(input, index) {
 		if (!input && this._optional) {
 			// Important so this argument still shows up in the final hash
@@ -108,11 +144,12 @@ class Argument {
 			return input;
 		}
 
-		try {
-			const processed = this._preprocessor(input);
-			return processed === undefined ? input : processed;
-		}
-		catch (err) {
+		// Defining these in here so they have access to scoped variables.
+		// Pass-through input value if preprocessor returned undefined
+		const getReturnValue = val => val === undefined ? input : val;
+
+		// Dress up errors thrown in preprocessor with additional context
+		const addErrorContext = err => {
 			let arg_id = `<${this._name}>`;
 
 			// Give a little more context for varargs errors
@@ -120,9 +157,21 @@ class Argument {
 				arg_id += `(${index + 1})`;
 			}
 
-			// So we can rethrow with the same Error class
+			// Edit message directly so we can rethrow with the same Error class
 			err.message = `Bad ${arg_id} value '${input}': ${err.message}`;
-			throw err;
+
+			return err;
+		};
+
+		try {
+			const processed = this._preprocessor(input);
+			if (this._async && processed instanceof Promise) {
+				return processed.then(getReturnValue).catch(addErrorContext);
+			} else {
+				return getReturnValue(processed);
+			}
+		} catch (err) {
+			throw addErrorContext(err);
 		}
 	}
 
@@ -136,8 +185,10 @@ class Argument {
 	 * Returns this so we can chain calls.
 	 */
 	preprocess(func) {
-		if (!isFunction(func)) {
-			throw new Error(`func was ${type(func)}, expected [object Function]`);
+		if (!isFunction(func) && !isAsyncFunction(func)) {
+			throw new Error(`func was ${type(func)}, ` +
+				'expected [object Function] or [object AsyncFunction]'
+			);
 		}
 
 		this._preprocessor = func;
