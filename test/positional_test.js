@@ -125,9 +125,7 @@ describe('Positional command parser', function() {
 				const arg = new Argument('test')
 					.asynchronous(true)
 					.preprocess(val => 123); // NOTE: not async
-				return expect(arg.parse('aaa'))
-					.to.be.instanceof(Promise)
-					.and.eventually.equal(123);
+				return expect(arg.parse('aaa')).to.eventually.equal(123);
 			});
 
 			it('Preprocessor can modify value', function() {
@@ -251,7 +249,7 @@ describe('Positional command parser', function() {
 
 			it('Error thrown for missing required argument (async)', function() {
 				const arg = new Argument('test').asynchronous(true);
-				expect(arg.parse()).to.be.rejectedWith(
+				return expect(arg.parse()).to.be.rejectedWith(
 					CommandError,
 					'Too few arguments! Missing argument <test>'
 				);
@@ -335,6 +333,12 @@ describe('Positional command parser', function() {
 				expect(() => new Command('')).to.throw('name was empty string');
 			});
 
+			it('Non-boolean asynchronous flag', function() {
+				expect(() => new Command('test').asynchronous({})).to.throw(
+					'enabled was [object Object], expected [object Boolean]'
+				);
+			});
+
 			it('Non-string description', function() {
 				expect(() => new Command('test').description({})).to.throw(
 					'name was [object Object], expected [object String]'
@@ -397,6 +401,37 @@ describe('Positional command parser', function() {
 					'test <first> <rest_1> [rest_2] ... [rest_n]'
 				);
 				expect(cmd.getDescription()).to.equal('Hello');
+			});
+		});
+
+		// NOTE: We're accessing private data for these tests. Sorry.
+		describe('Changing async setting', function() {
+
+			it('Command async setting applied to new argument set', function() {
+				const cmd = new Command('test').asynchronous(true);
+				const arg = new Argument('test');
+
+				expect(arg._async).to.be.false;
+
+				cmd.addArgSet([arg]);
+
+				expect(arg._async).to.be.true;
+			});
+
+			it('Async setting applied recursively to all argument sets', function() {
+				const cmd = new Command('test')
+					.addArgSet([new Argument('arga1')])
+					.addArgSet([new Argument('argb1'), new Argument('argb2')]);
+
+				const asyncArgs = () => cmd._argsets
+					.reduce((acc, set) => acc.concat(set), [])
+					.filter(arg => arg._async);
+
+				expect(asyncArgs()).to.be.empty;
+
+				cmd.asynchronous(true);
+
+				expect(asyncArgs()).to.have.lengthOf(3);
 			});
 		});
 
@@ -471,6 +506,11 @@ describe('Positional command parser', function() {
 				expect(cmd.execute()).to.be.undefined;
 			});
 
+			it('Command with no handler does nothing (async)', function() {
+				const cmd = new Command('test').asynchronous(true);
+				return expect(cmd.execute()).to.eventually.be.undefined;
+			});
+
 			it('Command execution forwards handler return value', function() {
 				const cmd = new Command('test')
 					.handler(() => 123);
@@ -478,12 +518,38 @@ describe('Positional command parser', function() {
 				expect(cmd.execute()).to.equal(123);
 			});
 
-			it('Command with args', function() {
+			it('Command execution forwards handler return value (async)',
+			function() {
+				const cmd = new Command('test')
+					.asynchronous(true)
+					.handler(async () => 123);
+				return expect(cmd.execute()).to.eventually.equal(123);
+			});
+
+			it('Command always returns promise in async mode', function() {
+				const cmd = new Command('test')
+					.asynchronous(true)
+					.handler(() => 123); // Not async
+				return expect(cmd.execute()).to.eventually.equal(123);
+			});
+
+			it('Command with arguments', function() {
 				const cmd = new Command('test')
 					.addArgSet([new Argument('xyz')])
 					.handler(args => args);
 				expect(() => cmd.execute(['value'])).to.not.throw();
 				expect(cmd.execute(['value'])).to.deep.equal({
+					_: ['value'],
+					xyz: 'value',
+				});
+			});
+
+			it('Command with arguments (async)', function() {
+				const cmd = new Command('test')
+					.addArgSet([new Argument('xyz')])
+					.asynchronous(true)
+					.handler(args => args);
+				return expect(cmd.execute(['value'])).to.eventually.deep.equal({
 					_: ['value'],
 					xyz: 'value',
 				});
@@ -531,6 +597,17 @@ describe('Positional command parser', function() {
 				);
 			});
 
+			it('Error thrown for invalid argument bubbles up (async)', function() {
+				const cmd = new Command('test')
+					.addArgSet([ new Argument('xyz')
+						.preprocess(() => { throw new Error('some fun reason') })
+					])
+					.asynchronous(true);
+				return expect(cmd.execute(['a'])).to.be.rejectedWith(
+					"Bad <xyz> value 'a': some fun reason"
+				);
+			});
+
 			it('Error thrown in handler bubbles up', function() {
 				const cmd = new Command('test')
 					.handler(() => { throw new Error('Handler broke') });
@@ -539,15 +616,24 @@ describe('Positional command parser', function() {
 				);
 			});
 
-			const cmd = new Command('test')
-				.addArgSet([ new Argument('arg')
-					.preprocess(() => { throw new Error('preprocess err'); })
-				])
-				.handler(() => { throw new Error('handler err'); });
+			it('Error thrown in handler bubbles up (async)', function() {
+				const cmd = new Command('test')
+					.asynchronous(true)
+					.handler(() => { throw new Error('Handler broke') });
+				return expect(cmd.execute()).to.be.rejectedWith(
+					'Command failed: Handler broke'
+				);
+			});
+
+			const arg = new Argument('arg')
+				.preprocess(() => { throw new Error('preprocess err'); });
 
 			it('Error handler catches error instead of throwing', function() {
 				let capture;
-				cmd.error(err => { capture = err; });
+				const cmd = new Command('test')
+					.addArgSet([arg])
+					.error(err => { capture = err; })
+					.handler(() => { throw new Error('should not see this'); });
 
 				expect(() => cmd.execute()).to.not.throw;
 				cmd.execute();
@@ -564,18 +650,53 @@ describe('Positional command parser', function() {
 				);
 			});
 
-			it('Forward arbitrary values to handler', function() {
+			it('Error handler catches error instead of throwing (async)', function() {
 				let capture;
-				cmd.error((err, val1) => { capture = val1; });
+				const cmd = new Command('test')
+					.addArgSet([arg])
+					.asynchronous(true)
+					.error(err => { capture = err; })
+					.handler(() => { throw new Error('should not see this'); });
+
+				return expect(cmd.execute(['abc'])).to.eventually.be.undefined
+					.then(() => {
+						expect(capture).to.be.an.instanceof(Error);
+						expect(capture.message).to.equal(
+							"Bad <arg> value 'abc': preprocess err"
+						);
+					});
+			});
+
+			it('Forward arbitrary values to error handler', function() {
+				let capture;
+				const cmd = new Command('test')
+					.addArgSet([arg])
+					.error((err, val1) => { capture = val1; })
+					.handler(() => { throw new Error('handler err'); });
 
 				cmd.execute([], 'arbitrary data');
 				expect(capture).to.equal('arbitrary data');
 			});
 
-			it('Command execution forwards handler return value', function() {
-				cmd.error(err => 'some returned value');
+			it('Command execution forwards error handler return value', function() {
+				const cmd = new Command('test')
+					.addArgSet([arg])
+					.error(err => 'some returned value')
+					.handler(() => { throw new Error('handler err'); });
 
 				expect(cmd.execute()).to.equal('some returned value');
+			});
+
+			it('Command execution forwards error handler return value (async)',
+			function() {
+				const cmd = new Command('test')
+					.addArgSet([arg])
+					.asynchronous(true)
+					.error(() => 'my cool error return value')
+					.handler(() => { throw new Error('handler err'); });
+
+				return expect(cmd.execute())
+					.to.eventually.equal('my cool error return value');
 			});
 		});
 
@@ -588,15 +709,37 @@ describe('Positional command parser', function() {
 						new Argument('aaa'),
 						new Argument('bbb'),
 					]);
+				const asc = new Command('test')
+					.addArgSet([
+						new Argument('aaa'),
+						new Argument('bbb'),
+					])
+					.asynchronous(true);
 
 				it('Error thrown for no args', function() {
 					expect(() => cmd.parse([])).to.throw(
+						CommandError,
+						'Too few arguments! Missing argument <aaa>'
+					);
+				});
+
+				it('Error thrown for no args (async)', function() {
+					return expect(asc.parse([])).to.be.rejectedWith(
+						CommandError,
 						'Too few arguments! Missing argument <aaa>'
 					);
 				});
 
 				it('Error thrown for missing args', function() {
 					expect(() => cmd.parse(['hello'])).to.throw(
+						CommandError,
+						'Too few arguments! Missing argument <bbb>'
+					);
+				});
+
+				it('Error thrown for missing args (async)', function() {
+					return expect(asc.parse(['hello'])).to.be.rejectedWith(
+						CommandError,
 						'Too few arguments! Missing argument <bbb>'
 					);
 				});
@@ -605,6 +748,15 @@ describe('Positional command parser', function() {
 					expect(() =>
 						cmd.parse(['hello', 'goodbye', 'things', 'stuff'])
 					).to.throw(
+						CommandError,
+						"Too many arguments! Extras: 'things', 'stuff'"
+					);
+				});
+
+				it('Error thrown for too many args (async)', function() {
+					return expect(
+						asc.parse(['hello', 'goodbye', 'things', 'stuff'])
+					).to.be.rejectedWith(
 						CommandError,
 						"Too many arguments! Extras: 'things', 'stuff'"
 					);
@@ -665,8 +817,19 @@ describe('Positional command parser', function() {
 				const cmd = new Command('test')
 					.addArgSet([new Argument('var').varargs(true)]);
 
+				const asm = new Command('test')
+					.addArgSet([new Argument('var').varargs(true)])
+					.asynchronous(true);
+
 				it('Varargs can have no arguments', function () {
 					expect(cmd.parse([])).to.deep.equal({
+						_: [],
+						var: [],
+					});
+				});
+
+				it('Varargs can have no arguments (async)', function () {
+					return expect(asm.parse([])).to.eventually.deep.equal({
 						_: [],
 						var: [],
 					});
@@ -676,6 +839,69 @@ describe('Positional command parser', function() {
 					expect(cmd.parse(['aaa', 'bbb', 'ccc'])).to.deep.equal({
 						_: ['aaa', 'bbb', 'ccc'],
 						var: ['aaa', 'bbb', 'ccc'],
+					});
+				});
+
+				it('Varargs can have many arguments (async)', function() {
+					return expect(asm.parse(['aaa', 'bbb', 'ccc']))
+						.to.eventually.deep.equal({
+							_: ['aaa', 'bbb', 'ccc'],
+							var: ['aaa', 'bbb', 'ccc'],
+						});
+				});
+			});
+
+			describe('Argument parsing in async mode', function() {
+
+				it('Parse always returns promise in async mode', function() {
+					const cmd = new Command('test').asynchronous(true);
+					expect(cmd.parse()).to.be.instanceof(Promise);
+				});
+
+				it('Synchronous arguments promoted to Promises', function() {
+					const cmd = new Command('test')
+						.addArgSet([new Argument('bbb').preprocess(() => 123)])
+						.asynchronous(true);
+					return expect(cmd.parse(['xyz'])).to.eventually.deep.equal({
+						_: ['xyz'],
+						bbb: 123,
+					});
+				});
+
+				it('Async arguments resolved', function() {
+					const cmd = new Command('test')
+						.addArgSet([
+							new Argument('aaa')
+								.asynchronous(true)
+								.preprocess(async val => val + 'a'),
+						])
+						.asynchronous(true);
+					return expect(cmd.parse(['xyz'])).to.eventually.deep.equal({
+						_: ['xyz'],
+						aaa: 'xyza',
+					});
+				});
+
+				it('Mixed sync and async arguments handled gracefully', function() {
+					const cmd = new Command('test')
+						.addArgSet([
+							new Argument('aaa')
+								.asynchronous(true)
+								.preprocess(async val => val + 'a'),
+							new Argument('bbb') // Intentionally not async
+								.preprocess(val => val + 'b'),
+							new Argument('ccc')
+								.asynchronous(true)
+								.preprocess(val => val + 'c'),
+						])
+						.asynchronous(true);
+					return expect(
+						cmd.parse(['111', '222', '333'])
+					).to.eventually.deep.equal({
+						_: ['111', '222', '333'],
+						aaa: '111a',
+						bbb: '222b',
+						ccc: '333c',
 					});
 				});
 			});

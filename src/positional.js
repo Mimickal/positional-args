@@ -256,6 +256,7 @@ class Command {
 			throw new Error('name was empty string');
 		}
 
+		this._async = false;
 		this._name = name;
 		this._argsets = [];
 		this._description = null;
@@ -317,7 +318,33 @@ class Command {
 		}
 
 		this._argsets.push(argset);
+		this._applyAsyncToArgsets();
 		return this;
+	}
+
+	/**
+	 * Enable/disable async mode. In async mode, Promises returned from argument
+	 * preprocessors and command handlers will be automatically resolved. This
+	 * means <code>execute</code> will always return a Promise. This also
+	 * enables async mode for all known argument sets.
+	 *
+	 * Returns this so we can chain calls.
+	 */
+	asynchronous(enabled) {
+		if (!isBoolean(enabled)) {
+			throw new Error(`enabled was ${type(enabled)}, expected [object Boolean]`);
+		}
+
+		this._async = enabled;
+		this._applyAsyncToArgsets();
+		return this;
+	}
+
+	/// Applies this Command's async setting to all known Arguments too.
+	_applyAsyncToArgsets() {
+		this._argsets.forEach(argset =>
+			argset.forEach(arg => arg.asynchronous(this._async))
+		);
 	}
 
 	/**
@@ -338,6 +365,11 @@ class Command {
 	 * command. If this is not set, errors are thrown to the caller instead.
 	 * The handler takes the error, along with any arguments originally
 	 * forwarded to the handler.
+	 *
+	 * In async mode, errors are routed through this function instead of
+	 * .catch(...). Additionally, values returned from this handler will bubble
+	 * up via execute's .then(...).
+	 *
 	 * Returns this so we can chain calls.
 	 */
 	error(func) {
@@ -353,9 +385,11 @@ class Command {
 	 * Parses the given positional argument array, then passes the resulting
 	 * structure into this command's handler function. Additional values can be
 	 * passed in to forward them directly to the handler.
+	 *
 	 * The return value is whatever the handler function returns.
 	 * If this command does not have a handler, the arguments will still be
 	 * proecessed and validation will still be applied.
+	 *
 	 * This can also take command strings so commands can be executed
 	 * independently of the CommandRegistry.
 	 */
@@ -364,6 +398,13 @@ class Command {
 			parts = Command.split(parts);
 		}
 
+		return this._async ?
+			this._executeAsync(parts, ...forward) :
+			this._executeSync(parts, ...forward);
+	}
+
+	/// Sync version of execute
+	_executeSync(parts, ...forward) {
 		let parsed_parts;
 		try {
 			parsed_parts = this.parse(parts);
@@ -382,7 +423,28 @@ class Command {
 		}
 	}
 
-	// De-duplicated logic for passing execution errors to the error handler
+	/// Async version of execute that always returns a Promise
+	_executeAsync(parts, ...forward) {
+		return Promise.resolve(this.parse(parts))
+			.then(parsed_parts => {
+				if (!this._handler) {
+					return Promise.resolve(); // Resolve to undefined
+				}
+
+				// Wrap in new Promise to catch both sync and async errors
+				return new Promise(resolve => {
+					resolve(this._handler(parsed_parts, ...forward));
+				})
+				.catch(err => {
+					// Bubble up to the next .catch with same Error class
+					err.message = `Command failed: ${err.message}`;
+					throw err;
+				});
+			})
+			.catch(err => this._executeHandleError(err, ...forward));
+	}
+
+	/// De-duplicated logic for passing execution errors to the error handler.
 	_executeHandleError(err, ...forward) {
 		if (this._err_handler) {
 			return this._err_handler(err, ...forward);
@@ -406,8 +468,10 @@ class Command {
 	 * Returns this so we can chain calls.
 	 */
 	handler(func) {
-		if (!isFunction(func)) {
-			throw new Error(`func was ${type(func)}, expected [object Function]`);
+		if (!isFunction(func) && !isAsyncFunction(func)) {
+			throw new Error(`func was ${type(func)}, ` +
+				'expected [object Function] or [object AsyncFunction]'
+			);
 		}
 
 		this._handler = func;
@@ -450,33 +514,61 @@ class Command {
 			argset = this._argsets.find(set => set.length === copy.length);
 
 			if (!argset) {
-				throw new CommandError(
+				const err = new CommandError(
 					'Wrong number of arguments! See command help for details'
 				);
+				if (this._async) return Promise.reject(err);
+				throw err;
 			}
 		}
 
 		// If this command has multiple argument sets, the above logic ensures
 		// we have the correct number of arguments once we get here.
-		// Also, all the validation in addArgSet guarantees varargs arguments
+		// All the validation in addArgSet guarantees varargs arguments
 		// only appear once, as the last argument in the largest set.
-		argset.forEach(arg => {
-			if (arg._varargs) {
-				parsed[arg._name] = arg.parse(copy);
-				copy.length = 0; // Clear array to avoid below Error
-			} else {
-				parsed[arg._name] = arg.parse(copy.shift());
-			}
-		});
+		// Also yeah, I know we're modifying things by reference here. It's
+		// weird, but so is mixing async and sync.
+		if (this._async) {
+			return Promise.all(
+					argset.map(arg => this._parseAsync(arg, parsed, copy))
+				)
+				.then(() => this._parseCheckExtraArgs(copy))
+				.then(() => parsed);
+		} else {
+			argset.forEach(arg => this._parseSync(arg, parsed, copy));
+			this._parseCheckExtraArgs(copy);
+			return parsed;
+		}
+	}
 
-		if (copy.length > 0) {
+	/// The sync version of argument parsing
+	_parseSync(arg, parsed, parts_ref) {
+		if (arg._varargs) {
+			parsed[arg._name] = arg.parse(parts_ref);
+			parts_ref.length = 0; // Clear array to avoid below length Error
+		} else {
+			parsed[arg._name] = arg.parse(parts_ref.shift());
+		}
+	}
+
+	/// The async version of argument parsing
+	async _parseAsync(arg, parsed, parts_ref) {
+		if (arg._varargs) {
+			parsed[arg._name] = await arg.parse(parts_ref);
+			parts_ref.length = 0; // Clear array since varargs parsed all of it
+		} else {
+			parsed[arg._name] = await arg.parse(parts_ref.shift());
+		}
+	}
+
+	/// Shared check for extraneous args used by both sync and async workflow
+	_parseCheckExtraArgs(parts_ref) {
+		if (parts_ref.length > 0) {
 			throw new CommandError(
 				'Too many arguments! Extras: ' +
-				copy.map(val => `'${val}'`).join(', ')
+				parts_ref.map(val => `'${val}'`).join(', ')
 			);
 		}
-
-		return parsed;
 	}
 }
 
@@ -642,6 +734,10 @@ function isBoolean(value) {
 
 function isFunction(value) {
 	return type(value) === '[object Function]';
+}
+
+function isAsyncFunction(value) {
+	return type(value) === '[object AsyncFunction]';
 }
 
 function isString(value) {
