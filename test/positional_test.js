@@ -811,6 +811,21 @@ describe('Positional command parser', function() {
 						'Wrong number of arguments! See command help for details'
 					);
 				});
+
+				it('Error thrown if no argset matches (async)', function() {
+					const asm = new Command('test')
+						.addArgSet([new Argument('aaa')])
+						.addArgSet([
+							new Argument('bbb'),
+							new Argument('ccc'),
+							new Argument('ddd'),
+						])
+						.asynchronous(true);
+					return expect(asm.parse(['xx', 'yy'])).to.be.rejectedWith(
+						CommandError,
+						'Wrong number of arguments! See command help for details'
+					);
+				});
 			});
 
 			describe('Varargs argument set', function() {
@@ -927,6 +942,30 @@ describe('Positional command parser', function() {
 
 	describe('CommandRegistry', function() {
 
+		describe('Basic errors', function() {
+
+			it('Error thrown for non-boolean asynchronous flag', function() {
+				const cmdreg = new CommandRegistry();
+				expect(() => cmdreg.asynchronous({})).to.throw(
+					'enabled was [object Object], expected [object Boolean]'
+				);
+			});
+
+			it('Error thrown for non-function default handler', function() {
+				const cmdreg = new CommandRegistry();
+				expect(() => cmdreg.defaultHandler('not a function')).to.throw(
+					'func was [object String], expected [object Function]'
+				);
+			});
+
+			it('Error thrown for non-function help handler', function() {
+				const cmdreg = new CommandRegistry();
+				expect(() => cmdreg.helpHandler({})).to.throw(
+					'func was [object Object], expected [object Function]'
+				);
+			});
+		});
+
 		describe('Adding new commands', function() {
 
 			it('Commands sucessfully added', function() {
@@ -957,17 +996,34 @@ describe('Positional command parser', function() {
 
 		describe('Default handler used for unrecognized commands', function () {
 
-			it('No-op if no default handler defined', function() {
+			it('No-op if default handler undefined', function() {
 				const cmdreg = new CommandRegistry()
 					.add(new Command('test'));
 				expect(() => cmdreg.execute('unknown')).to.not.throw;
 				expect(cmdreg.execute('unknown')).to.be.undefined;
 			});
 
-			it('Default handler throws an Error', function() {
+			it('No-op if default handler undefined (async)', function() {
+				const cmdreg = new CommandRegistry()
+					.add(new Command('test'))
+					.asynchronous(true);
+				return expect(cmdreg.execute('unknown'))
+					.to.eventually.be.undefined;
+			});
+
+			it('Built-in default handler throws an Error', function() {
 				const cmdreg = new CommandRegistry()
 					.defaultHandler();
 				expect(() => cmdreg.execute('unknown')).to.throw(
+					"Unrecognized command 'unknown'"
+				);
+			});
+
+			it('Built-in default handler throws an Error (async)', function() {
+				const cmdreg = new CommandRegistry()
+					.asynchronous(true)
+					.defaultHandler();
+				return expect(cmdreg.execute('unknown')).to.be.rejectedWith(
 					"Unrecognized command 'unknown'"
 				);
 			});
@@ -976,6 +1032,14 @@ describe('Positional command parser', function() {
 				const cmdreg = new CommandRegistry()
 					.defaultHandler(() => 'My cool value');
 				expect(cmdreg.execute('unknown')).to.equal('My cool value');
+			});
+
+			it('Return value from default handler bubbles up (async)', function() {
+				const cmdreg = new CommandRegistry()
+					.asynchronous(true)
+					.defaultHandler(() => 'My cool value');
+				return expect(cmdreg.execute('unknown'))
+					.to.eventually.equal('My cool value');
 			});
 
 			it('Args forwarded to handler', function() {
@@ -992,11 +1056,20 @@ describe('Positional command parser', function() {
 				});
 			});
 
-			it('Error thrown for non-function handler', function() {
-				const cmdreg = new CommandRegistry();
-				expect(() => cmdreg.defaultHandler('not a function')).to.throw(
-					'func was [object String], expected [object Function]'
-				);
+			it('Args forwarded to handler (async)', function() {
+				const cmdreg = new CommandRegistry()
+					.asynchronous(true)
+					.defaultHandler((args, forward1, forward2) => {
+						return {
+							thing1: forward1,
+							thing2: forward2,
+						};
+					});
+				return expect(cmdreg.execute('unknown', 'aaa', {x: 'y'}))
+					.to.eventually.deep.equal({
+						thing1: 'aaa',
+						thing2: {x: 'y'},
+					});
 			});
 
 			it('Error from handler bubbles up', function() {
@@ -1008,9 +1081,21 @@ describe('Positional command parser', function() {
 					'I have a problem'
 				);
 			});
+
+			it('Error from handler bubbles up (async)', function() {
+				const cmdreg = new CommandRegistry()
+					.asynchronous(true)
+					.defaultHandler(() => {
+						throw new Error('I have a problem');
+					});
+				expect(cmdreg.execute('unknown')).to.be.rejectedWith(
+					'I have a problem'
+				);
+			});
 		});
 
 		describe('Help', function() {
+
 			const cmdreg = new CommandRegistry()
 				.add(new Command('com1')
 					.description('My test command 1')
@@ -1021,6 +1106,19 @@ describe('Positional command parser', function() {
 					.addArgSet([new Argument('arg2')])
 					.addArgSet([new Argument('ver2'), new Argument('ano')])
 				);
+
+			const asmreg = new CommandRegistry()
+				.add(new Command('com1')
+					.description('My test command 1')
+					.addArgSet([new Argument('arg1')])
+				)
+				.add(new Command('com2')
+					.description('Another test command')
+					.addArgSet([new Argument('arg2')])
+					.addArgSet([new Argument('ver2'), new Argument('ano')])
+				)
+				.asynchronous(true);
+
 			const usage =
 				'com1 <arg1>\n' +
 				'com2 <arg2>\n' +
@@ -1031,21 +1129,50 @@ describe('Positional command parser', function() {
 				expect(cmdreg.help()).to.be.undefined;
 			});
 
+			it('No-op if no help handler defined (async)', function() {
+				return expect(asmreg.help()).to.eventually.be.undefined;
+			});
+
 			it('Default help handler returns usage string', function() {
 				cmdreg.helpHandler();
 				expect(cmdreg.help()).to.equal(usage);
 			});
 
-			it('Default help handler gracefully handles unknown commmands', function() {
+			it('Default help handler returns usage string (async)', function() {
+				asmreg.helpHandler();
+				return expect(asmreg.help()).to.eventually.equal(usage);
+			});
+
+			it('Default help handler gracefully handles unknown commmands',
+			function() {
+				cmdreg.helpHandler();
 				expect(cmdreg.help('unknown')).to.equal("Unknown command 'unknown'");
+			});
+
+			it('Default help handler gracefully handles unknown commmands (async)',
+			function() {
+				asmreg.helpHandler();
+				return expect(asmreg.help('unknown'))
+					.to.eventually.equal("Unknown command 'unknown'");
 			});
 
 			it('Can execute help as a command', function() {
 				expect(cmdreg.execute('help')).to.equal(usage);
 			});
 
+			it('Can execute help as a command (async)', function() {
+				return expect(asmreg.execute('help')).to.eventually.equal(usage);
+			});
+
 			it('Can get help for a single command', function() {
 				expect(cmdreg.help('com2')).to.equal(
+					'com2 <arg2>\n' +
+					'com2 <ver2> <ano>'
+				);
+			});
+
+			it('Can get help for a single command (async)', function() {
+				return expect(asmreg.help('com2')).to.eventually.equal(
 					'com2 <arg2>\n' +
 					'com2 <ver2> <ano>'
 				);
@@ -1062,15 +1189,27 @@ describe('Positional command parser', function() {
 				});
 			});
 
+			it('Args forwarded to handler (async)', function() {
+				asmreg.helpHandler((name, commands, arg1, arg2) => ({
+					arg1: arg1,
+					arg2: arg2,
+				}));
+				return expect(asmreg.help('ignored', 'aaa', {x: 'y'}))
+					.to.eventually.deep.equal({
+						arg1: 'aaa',
+						arg2: {x: 'y'},
+					});
+			});
+
 			it('Handler function gets command list', function() {
 				cmdreg.helpHandler((name, commands) => commands);
 				expect(cmdreg.help('ignored')).to.equal(cmdreg.commands);
 			});
 
-			it('Error thrown for non-function handler', function() {
-				expect(() => cmdreg.helpHandler({})).to.throw(
-					'func was [object Object], expected [object Function]'
-				);
+			it('Handler function gets command list (async)', function() {
+				asmreg.helpHandler((name, commands) => commands);
+				return expect(asmreg.help('ignored'))
+					.to.eventually.equal(asmreg.commands);
 			});
 
 			it('Error from handler bubbles up', function() {
@@ -1079,26 +1218,76 @@ describe('Positional command parser', function() {
 				});
 				expect(() => cmdreg.help('ignored')).to.throw('This thing broke');
 			});
+
+			it('Error from handler bubbles up (async)', function() {
+				asmreg.helpHandler(() => {
+					throw new Error('This thing broke');
+				});
+				return expect(asmreg.help('ignored'))
+					.to.be.rejectedWith('This thing broke');
+			});
 		});
 
 		describe('Command execution', function() {
 
 			it('Return value from command bubbles up', function() {
 				const cmdreg = new CommandRegistry()
-					.add(new Command('com1')
-						.handler(() => 'My cool thing')
-					);
+					.add(new Command('com1').handler(() => 'My cool thing'));
 				expect(cmdreg.execute('com1')).to.equal('My cool thing');
+			});
+
+			it('Return value from command bubbles up (async)', function() {
+				const cmdreg = new CommandRegistry()
+					.add(new Command('com1').handler(() => 'My cool thing'))
+					.asynchronous(true);
+				return expect(cmdreg.execute('com1'))
+					.to.eventually.equal('My cool thing');
 			});
 
 			it('Error thrown from handler bubbles up', function() {
 				const cmdreg = new CommandRegistry()
-					.add(new Command('test')
-						.handler(() => {
-							throw new Error('Bad things happened');
-						})
-					);
+					.add(new Command('test').handler(() => {
+						throw new Error('Bad things happened');
+					}));
 				expect(() => cmdreg.execute('test')).to.throw('Bad things happened');
+			});
+
+			it('Error thrown from handler bubbles up (async)', function() {
+				const cmdreg = new CommandRegistry()
+					.add(new Command('test').handler(() => {
+						throw new Error('Bad things happened');
+					}))
+					.asynchronous(true);
+				return expect(cmdreg.execute('test'))
+					.to.be.rejectedWith('Bad things happened');
+			});
+		});
+
+		describe('Switching async mode', function() {
+
+			it('New commands inherit async setting', function() {
+				const cmd = new Command('test');
+				const cmdreg = new CommandRegistry().asynchronous(true);
+
+				expect(cmd._async).to.be.false;
+
+				cmdreg.add(cmd);
+
+				expect(cmd._async).to.be.true;
+			});
+
+			it('Async changes applied recursively to commands', function() {
+				const cmdreg = new CommandRegistry()
+					.add(new Command('test1'))
+					.add(new Command('test2'));
+				const asyncCmds = () =>
+					Array.from(cmdreg.commands.values()).filter(cmd => cmd._async);
+
+				expect(asyncCmds()).to.be.empty;
+
+				cmdreg.asynchronous(true);
+
+				expect(asyncCmds()).to.have.lengthOf(2);
 			});
 		});
 	});

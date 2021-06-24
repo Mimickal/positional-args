@@ -599,6 +599,7 @@ class CommandRegistry {
 	 */
 	constructor() {
 		this.commands = new Map();
+		this._async = false;
 		this._default_handler = null;
 	}
 
@@ -615,7 +616,32 @@ class CommandRegistry {
 		}
 
 		this.commands.set(command._name, command);
+		this._applyAsyncToCommands();
 		return this;
+	}
+
+	/**
+	 * Sets every command and argument in this registry to async mode. In async
+	 * mode, <code>help</code> and <code>execute</code> will both return
+	 * Promises that resolve/reject based on the command execution.
+	 *
+	 * This setting will be applied to all new and existing commands.
+	 *
+	 * Returns this so we can chain calls.
+	 */
+	asynchronous(enabled) {
+		if (!isBoolean(enabled)) {
+			throw new Error(`enabled was ${type(enabled)}, expected [object Boolean]`);
+		}
+
+		this._async = enabled;
+		this._applyAsyncToCommands();
+		return this
+	}
+
+	/// Recursively apply this CommandRegistry's async setting to all commands.
+	_applyAsyncToCommands() {
+		this.commands.forEach(cmd => cmd.asynchronous(this._async));
 	}
 
 	/**
@@ -649,15 +675,21 @@ class CommandRegistry {
 	 * handlers.
 	 */
 	execute(string, ...forward) {
-		const parts = Command.split(string);
-		const cmd_name = parts.shift();
-		if (cmd_name === 'help') {
-			return this.help(parts[0], ...forward);
-		} else if (this.commands.has(cmd_name)) {
-			return this.commands.get(cmd_name).execute(parts, ...forward);
-		} else if (this._default_handler) {
-			return this._default_handler([cmd_name, ...parts], ...forward);
-		}
+		const executeInner = () => {
+			const parts = Command.split(string);
+			const cmd_name = parts.shift();
+			if (cmd_name === 'help') {
+				return this.help(parts[0], ...forward);
+			} else if (this.commands.has(cmd_name)) {
+				return this.commands.get(cmd_name).execute(parts, ...forward);
+			} else if (this._default_handler) {
+				return this._default_handler([cmd_name, ...parts], ...forward);
+			}
+		};
+
+		return this._async ?
+			new Promise(resolve => resolve(executeInner())) :
+			executeInner();
 	}
 
 	/**
@@ -668,11 +700,17 @@ class CommandRegistry {
 	 * will be forwarded to the help handler.
 	 */
 	help(cmd_name, ...forward) {
-		const helpcmd = this.commands.get('help');
-		if (helpcmd) {
-			const parts = cmd_name ? [cmd_name] : [];
-			return helpcmd.execute(parts, this.commands, ...forward);
-		}
+		const helpInner = () => {
+			const helpcmd = this.commands.get('help');
+			if (helpcmd) {
+				const parts = cmd_name ? [cmd_name] : [];
+				return helpcmd.execute(parts, this.commands, ...forward);
+			}
+		};
+
+		return this._async ?
+			new Promise(resolve => resolve(helpInner())) :
+			helpInner();
 	}
 
 	/**
