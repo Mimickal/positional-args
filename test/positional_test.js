@@ -209,13 +209,18 @@ describe('Positional command parser', function() {
 			});
 
 			it('Error thrown in preprocessor bubbles up (async)', function() {
-				const arg = new Argument('test')
+				const arg1 = new Argument('test')
 					.asynchronous(true)
 					.preprocess(validator); // Given func not async
-				return expect(arg.parse('xyz')).to.be.rejectedWith(
-					RangeError,
-					"Bad <test> value 'xyz': x is bad"
-				);
+				const arg2 = new Argument('test')
+					.asynchronous(true)
+					.preprocess(async () => { throw new RangeError('x is bad') });
+				return Promise.all([arg1, arg2].map(arg =>
+					expect(arg.parse('xyz')).to.be.rejectedWith(
+						RangeError,
+						"Bad <test> value 'xyz': x is bad"
+					)
+				));
 			});
 
 			it('Error thrown in preprocessor bubbles up (varargs)', function() {

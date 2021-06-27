@@ -149,7 +149,7 @@ class Argument {
 		const getReturnValue = val => val === undefined ? input : val;
 
 		// Dress up errors thrown in preprocessor with additional context
-		const addErrorContext = err => {
+		const throwWithContext = err => {
 			let arg_id = `<${this._name}>`;
 
 			// Give a little more context for varargs errors
@@ -160,18 +160,18 @@ class Argument {
 			// Edit message directly so we can rethrow with the same Error class
 			err.message = `Bad ${arg_id} value '${input}': ${err.message}`;
 
-			return err;
+			throw err;
 		};
 
 		try {
 			const processed = this._preprocessor(input);
 			if (this._async && processed instanceof Promise) {
-				return processed.then(getReturnValue).catch(addErrorContext);
+				return processed.then(getReturnValue).catch(throwWithContext);
 			} else {
 				return getReturnValue(processed);
 			}
 		} catch (err) {
-			throw addErrorContext(err);
+			throwWithContext(err);
 		}
 	}
 
