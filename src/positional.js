@@ -8,6 +8,15 @@
  ******************************************************************************/
 // Also, this will likely end up getting pulled into its own library for reuse.
 
+// Since you're reading this, I assume you either want to know how this code
+// works, or want to make modifications to it (bless you).
+//
+// A bit of forewarning: if you don't have a very strong grasp of Promises,
+// you might be in for a rough time here. The whole async portion of this
+// library is built on Promise chains. If you're still feeling brave, I strongly
+// recommend reading this excellent article on Promises:
+// https://pouchdb.com/2015/05/18/we-have-a-problem-with-promises.html
+
 /**
  * Represents a single positional argument for a command.
  */
@@ -86,9 +95,7 @@ class Argument {
 
 		if (this._async) {
 			// Will auto-reject if this throws
-			return new Promise((resolve, reject) => {
-				resolve(this._parseStart(args));
-			});
+			return new Promise(resolve => resolve(this._parseStart(args)));
 		} else {
 			return this._parseStart(args);
 		}
@@ -558,7 +565,9 @@ class Command {
 	async _parseAsync(arg, parsed, parts_ref) {
 		if (arg._varargs) {
 			parsed[arg._name] = await arg.parse(parts_ref);
-			parts_ref.length = 0; // Clear array since varargs parsed all of it
+			parts_ref.length = 0; // Clear array since varargs parsed all of it.
+			// This is safe to do here because varargs Arguments must be last in
+			// the arg list, and we execute argument parsing sequentially.
 		} else {
 			parsed[arg._name] = await arg.parse(parts_ref.shift());
 		}
