@@ -15,6 +15,7 @@ const Argument = pp.Argument;
 const Command = pp.Command;
 const CommandError = pp.CommandError;
 const CommandRegistry = pp.CommandRegistry;
+const SetupError = pp.SetupError;
 
 describe('Positional command parser', function() {
 
@@ -24,22 +25,28 @@ describe('Positional command parser', function() {
 
 			it('Missing Argument name', function() {
 				expect(() => new Argument()).to.throw(
+					SetupError,
 					'name was [object Undefined], expected [object String]'
 				);
 			});
 
 			it('Non-string Argument name', function() {
 				expect(() => new Argument({})).to.throw(
+					SetupError,
 					'name was [object Object], expected [object String]'
 				);
 			});
 
 			it('Empty Argument name', function() {
-				expect(() => new Argument('')).to.throw('name was empty string');
+				expect(() => new Argument('')).to.throw(
+					SetupError,
+					'name was empty string'
+				);
 			});
 
 			it('Non-function preprocessor', function () {
 				expect(() => new Argument('test').preprocess({})).to.throw(
+					SetupError,
 					'func was [object Object], expected [object Function]'
 				);
 			});
@@ -47,27 +54,32 @@ describe('Positional command parser', function() {
 			it('Non-string and non-Array args', function() {
 				const arg = new Argument('test');
 				expect(() => arg.parse({})).to.throw(
+					CommandError,
 					"args was [object Object], expected [object String] or 'Array<string>'"
 				);
 				expect(() => arg.parse(true)).to.throw(
+					CommandError,
 					"args was [object Boolean], expected [object String] or 'Array<string>'"
 				);
 			});
 
 			it('Non-boolean asynchronous flag', function() {
 				expect(() => new Argument('test').asynchronous({})).to.throw(
+					SetupError,
 					'enabled was [object Object], expected [object Boolean]'
 				);
 			});
 
 			it('Non-boolean optional flag', function() {
 				expect(() => new Argument('test').optional({})).to.throw(
+					SetupError,
 					'enabled was [object Object], expected [object Boolean]'
 				);
 			});
 
 			it('Non-boolean varargs flag', function() {
 				expect(() => new Argument('test').varargs({})).to.throw(
+					SetupError,
 					'enabled was [object Object], expected [object Boolean]'
 				);
 			});
@@ -329,40 +341,48 @@ describe('Positional command parser', function() {
 
 			it('Missing Command name', function() {
 				expect(() => new Command()).to.throw(
+					SetupError,
 					'name was [object Undefined], expected [object String]'
 				);
 			});
 
 			it('Non-string Command name', function() {
 				expect(() => new Command({})).to.throw(
+					SetupError,
 					'name was [object Object], expected [object String]'
 				);
 			});
 
 			it('Empty Command name', function() {
-				expect(() => new Command('')).to.throw('name was empty string');
+				expect(() => new Command('')).to.throw(
+					SetupError, 'name was empty string'
+				);
 			});
 
 			it('Non-boolean asynchronous flag', function() {
 				expect(() => new Command('test').asynchronous({})).to.throw(
+					SetupError,
 					'enabled was [object Object], expected [object Boolean]'
 				);
 			});
 
 			it('Non-string description', function() {
 				expect(() => new Command('test').description({})).to.throw(
+					SetupError,
 					'name was [object Object], expected [object String]'
 				);
 			});
 
 			it('Non-function handler', function() {
 				expect(() => new Command('test').handler({})).to.throw(
+					SetupError,
 					'func was [object Object], expected [object Function]'
 				);
 			});
 
 			it('Non-function error handler', function() {
 				expect(() => new Command('test').error({})).to.throw(
+					SetupError,
 					'func was [object Object], expected [object Function]'
 				);
 			});
@@ -450,14 +470,15 @@ describe('Positional command parser', function() {
 			it('Exception for non-Array and non-Argument arg set', function() {
 				const err = "argset must be of type 'Array<Argument>'";
 
-				expect(() => new Command('test').addArgSet({})).to.throw(err)
-				expect(() =>
-					new Command('test').addArgSet(new Argument('test'))
-				).to.throw(err);
-				expect(() => new Command('test').addArgSet(['bad'])).to.throw(err);
+				expect(() => new Command('test').addArgSet({}))
+					.to.throw(SetupError, err)
+				expect(() => new Command('test').addArgSet(new Argument('test')))
+					.to.throw(SetupError, err);
+				expect(() => new Command('test').addArgSet(['bad']))
+					.to.throw(SetupError, err);
 				expect(() =>
 					new Command('test').addArgSet([new Argument('test'), 'bad'])
-				).to.throw(err);
+				).to.throw(SetupError, err);
 			});
 
 			const pre = 'Ambiguous argument sets';
@@ -466,14 +487,14 @@ describe('Positional command parser', function() {
 				expect(() => new Command('test')
 					.addArgSet([new Argument('test1'), new Argument('test2')])
 					.addArgSet([new Argument('test3'), new Argument('test4')])
-				).to.throw(`${pre}: Multiple sets of length 2`);
+				).to.throw(SetupError, `${pre}: Multiple sets of length 2`);
 			});
 
 			it('Exception thrown if multiple arg sets have varargs', function() {
 				expect(() => new Command('test')
 					.addArgSet([new Argument('var').varargs(true)])
 					.addArgSet([new Argument('test'), new Argument('var').varargs(true)])
-				).to.throw(`${pre}: Multiple sets containing varargs`);
+				).to.throw(SetupError, `${pre}: Multiple sets containing varargs`);
 			});
 
 			it('Exception thrown for non-last optional argument', function() {
@@ -482,7 +503,7 @@ describe('Positional command parser', function() {
 						new Argument('opt').optional(true),
 						new Argument('req'),
 					])
-				).to.throw(`${pre}: optional argument must be last in set`);
+				).to.throw(SetupError, `${pre}: optional argument must be last in set`);
 			});
 
 			it('Exception thrown if non-last varargs argument', function() {
@@ -491,7 +512,7 @@ describe('Positional command parser', function() {
 						new Argument('test').varargs(true),
 						new Argument('last'),
 					])
-				).to.throw(`${pre}: varargs argument must be last in set`);
+				).to.throw(SetupError, `${pre}: varargs argument must be last in set`);
 			});
 
 			it('Exception thrown if varargs arg set is not the largest set',
@@ -500,11 +521,11 @@ describe('Positional command parser', function() {
 				expect(() => new Command('test')
 					.addArgSet([new Argument('var').varargs(true)])
 					.addArgSet([new Argument('test1'), new Argument('test2')])
-				).to.throw(err);
+				).to.throw(SetupError, err);
 				expect(() => new Command('test')
 					.addArgSet([new Argument('test1'), new Argument('test2')])
 					.addArgSet([new Argument('test').varargs(true)])
-				).to.throw(err);
+				).to.throw(SetupError, err);
 			});
 		});
 
@@ -957,6 +978,7 @@ describe('Positional command parser', function() {
 			it('Error thrown for non-boolean asynchronous flag', function() {
 				const cmdreg = new CommandRegistry();
 				expect(() => cmdreg.asynchronous({})).to.throw(
+					SetupError,
 					'enabled was [object Object], expected [object Boolean]'
 				);
 			});
@@ -964,6 +986,7 @@ describe('Positional command parser', function() {
 			it('Error thrown for non-function default handler', function() {
 				const cmdreg = new CommandRegistry();
 				expect(() => cmdreg.defaultHandler('not a function')).to.throw(
+					SetupError,
 					'func was [object String], expected [object Function]'
 				);
 			});
@@ -971,6 +994,7 @@ describe('Positional command parser', function() {
 			it('Error thrown for non-function help handler', function() {
 				const cmdreg = new CommandRegistry();
 				expect(() => cmdreg.helpHandler({})).to.throw(
+					SetupError,
 					'func was [object Object], expected [object Function]'
 				);
 			});
@@ -991,6 +1015,7 @@ describe('Positional command parser', function() {
 			it('Error thrown for non-Command object', function() {
 				const cmdreg = new CommandRegistry();
 				expect(() => cmdreg.add({})).to.throw(
+					SetupError,
 					'command was [object Object], expected [object Command]'
 				);
 			});
@@ -999,6 +1024,7 @@ describe('Positional command parser', function() {
 				const cmdreg = new CommandRegistry();
 				cmdreg.add(new Command('test'));
 				expect(() => cmdreg.add(new Command('test'))).to.throw(
+					SetupError,
 					"Defined duplicate command 'test'"
 				);
 			});

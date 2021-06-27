@@ -27,10 +27,10 @@ class Argument {
 	 */
 	constructor(name) {
 		if (!isString(name)) {
-			throw new Error(`name was ${type(name)}, expected [object String]`);
+			throw new SetupError(`name was ${type(name)}, expected [object String]`);
 		}
 		if (!name) {
-			throw new Error('name was empty string');
+			throw new SetupError('name was empty string');
 		}
 
 		this._async = false;
@@ -49,7 +49,9 @@ class Argument {
 	 */
 	asynchronous(enabled) {
 		if (!isBoolean(enabled)) {
-			throw new Error(`enabled was ${type(enabled)}, expected [object Boolean]`);
+			throw new SetupError(
+				`enabled was ${type(enabled)}, expected [object Boolean]`
+			);
 		}
 
 		this._async = enabled;
@@ -63,7 +65,7 @@ class Argument {
 	 */
 	optional(enabled) {
 		if (!isBoolean(enabled)) {
-			throw new Error(
+			throw new SetupError(
 				`enabled was ${type(enabled)}, expected [object Boolean]`
 			);
 		}
@@ -88,7 +90,7 @@ class Argument {
 	 */
 	parse(args) {
 		if (args != null && !isString(args) && !Array.isArray(args)) {
-			throw new Error(
+			throw new CommandError( // Because this is during command execution
 				`args was ${type(args)}, expected [object String] or 'Array<string>'`
 			);
 		}
@@ -193,7 +195,7 @@ class Argument {
 	 */
 	preprocess(func) {
 		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new Error(`func was ${type(func)}, ` +
+			throw new SetupError(`func was ${type(func)}, ` +
 				'expected [object Function] or [object AsyncFunction]'
 			);
 		}
@@ -225,7 +227,9 @@ class Argument {
 	 */
 	varargs(enabled) {
 		if (!isBoolean(enabled)) {
-			throw new Error(`enabled was ${type(enabled)}, expected [object Boolean]`);
+			throw new SetupError(
+				`enabled was ${type(enabled)}, expected [object Boolean]`
+			);
 		}
 
 		this._varargs = enabled;
@@ -244,7 +248,7 @@ class Command {
 	 */
 	static split(string) {
 		if (!isString(string)) {
-			throw new Error(
+			throw new CommandError(
 				`string was ${type(string)}, expected [object String]`
 			);
 		}
@@ -258,10 +262,10 @@ class Command {
 	 */
 	constructor(name) {
 		if (!isString(name)) {
-			throw new Error(`name was ${type(name)}, expected [object String]`);
+			throw new SetupError(`name was ${type(name)}, expected [object String]`);
 		}
 		if (!name) {
-			throw new Error('name was empty string');
+			throw new SetupError('name was empty string');
 		}
 
 		this._async = false;
@@ -288,7 +292,7 @@ class Command {
 	 */
 	addArgSet(argset) {
 		if (!Array.isArray(argset) || !argset.every(arg => arg instanceof Argument)) {
-			throw new Error("argset must be of type 'Array<Argument>'");
+			throw new SetupError("argset must be of type 'Array<Argument>'");
 		}
 
 		const pre = 'Ambiguous argument sets';
@@ -299,22 +303,22 @@ class Command {
 		);
 
 		if (this._argsets.find(set => set.length === argset.length)) {
-			throw new Error(`${pre}: Multiple sets of length ${argset.length}`);
+			throw new SetupError(`${pre}: Multiple sets of length ${argset.length}`);
 		}
 
 		if (argset.find(arg => arg._optional) &&
 			argset.findIndex(arg => arg._optional) != argset.length - 1) {
-			throw new Error(`${pre}: optional argument must be last in set`);
+			throw new SetupError(`${pre}: optional argument must be last in set`);
 		}
 
 		if (hasVarargs(argset) &&
 			argset.findIndex(arg => arg._varargs) != argset.length - 1
 		) {
-			throw new Error(`${pre}: varargs argument must be last in set`);
+			throw new SetupError(`${pre}: varargs argument must be last in set`);
 		}
 
 		if (allsets.filter(hasVarargs).length > 1) {
-			throw new Error(`${pre}: Multiple sets containing varargs`);
+			throw new SetupError(`${pre}: Multiple sets containing varargs`);
 		}
 
 		if (allsets.find(hasVarargs) && (
@@ -322,7 +326,7 @@ class Command {
 				allsets.findIndex(set => set.length === max_set_len)
 			)
 		) {
-			throw new Error(`${pre}: set containing varargs must be largest set`);
+			throw new SetupError(`${pre}: set containing varargs must be largest set`);
 		}
 
 		this._argsets.push(argset);
@@ -340,7 +344,9 @@ class Command {
 	 */
 	asynchronous(enabled) {
 		if (!isBoolean(enabled)) {
-			throw new Error(`enabled was ${type(enabled)}, expected [object Boolean]`);
+			throw new SetupError(
+				`enabled was ${type(enabled)}, expected [object Boolean]`
+			);
 		}
 
 		this._async = enabled;
@@ -361,7 +367,7 @@ class Command {
 	 */
 	description(desc) {
 		if (!isString(desc)) {
-			throw new Error(`name was ${type(desc)}, expected [object String]`);
+			throw new SetupError(`name was ${type(desc)}, expected [object String]`);
 		}
 
 		this._description = desc;
@@ -382,7 +388,7 @@ class Command {
 	 */
 	error(func) {
 		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new Error(`func was ${type(func)}, ` +
+			throw new SetupError(`func was ${type(func)}, ` +
 				'expected [object Function] or [object AsyncFunction]'
 			);
 		}
@@ -479,7 +485,7 @@ class Command {
 	 */
 	handler(func) {
 		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new Error(`func was ${type(func)}, ` +
+			throw new SetupError(`func was ${type(func)}, ` +
 				'expected [object Function] or [object AsyncFunction]'
 			);
 		}
@@ -600,6 +606,13 @@ class CommandError extends Error {
 	}
 }
 
+/// Error thrown when setting up Argument, Command, or CommandRegistry objects.
+class SetupError extends Error {
+	constructor(message) {
+		super(message);
+	}
+}
+
 /**
  * A registry containing commands. Can take in command strings and delegate them
  * to the appropriate commands.
@@ -621,10 +634,12 @@ class CommandRegistry {
 	 */
 	add(command) {
 		if (!(command instanceof Command)) {
-			throw new Error(`command was ${type(command)}, expected [object Command]`);
+			throw new SetupError(
+				`command was ${type(command)}, expected [object Command]`
+			);
 		}
 		if (this.commands.has(command._name)) {
-			throw new Error(`Defined duplicate command '${command._name}'`);
+			throw new SetupError(`Defined duplicate command '${command._name}'`);
 		}
 
 		this.commands.set(command._name, command);
@@ -643,7 +658,9 @@ class CommandRegistry {
 	 */
 	asynchronous(enabled) {
 		if (!isBoolean(enabled)) {
-			throw new Error(`enabled was ${type(enabled)}, expected [object Boolean]`);
+			throw new SetupError(
+				`enabled was ${type(enabled)}, expected [object Boolean]`
+			);
 		}
 
 		this._async = enabled;
@@ -671,7 +688,7 @@ class CommandRegistry {
 		func = func || defaultDefaultHandler;
 
 		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new Error(`func was ${type(func)}, ` +
+			throw new SetupError(`func was ${type(func)}, ` +
 				'expected [object Function] or [object AsyncFunction]'
 			);
 		}
@@ -812,4 +829,5 @@ module.exports = {
 	Command,
 	CommandError,
 	CommandRegistry,
+	SetupError,
 };
