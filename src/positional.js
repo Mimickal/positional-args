@@ -374,8 +374,10 @@ class Command {
 	 * Returns this so we can chain calls.
 	 */
 	error(func) {
-		if (!isFunction(func)) {
-			throw new Error(`func was ${type(func)}, expected [object Function]`);
+		if (!isFunction(func) && !isAsyncFunction(func)) {
+			throw new Error(`func was ${type(func)}, ` +
+				'expected [object Function] or [object AsyncFunction]'
+			);
 		}
 
 		this._err_handler = func;
@@ -659,8 +661,10 @@ class CommandRegistry {
 	defaultHandler(func) {
 		func = func || defaultDefaultHandler;
 
-		if (!isFunction(func)) {
-			throw new Error(`func was ${type(func)}, expected [object Function]`);
+		if (!isFunction(func) && !isAsyncFunction(func)) {
+			throw new Error(`func was ${type(func)}, ` +
+				'expected [object Function] or [object AsyncFunction]'
+			);
 		}
 
 		this._default_handler = func;
@@ -725,6 +729,7 @@ class CommandRegistry {
 	 * Returns this so we can chain calls.
 	 */
 	helpHandler(func) {
+		// Command.handler checks if this is a valid function
 		func = func || defaultHelpHandler;
 
 		if (!this.commands.has('help')) {
