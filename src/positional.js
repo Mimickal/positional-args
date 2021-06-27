@@ -532,11 +532,11 @@ class Command {
 		// Also yeah, I know we're modifying things by reference here. It's
 		// weird, but so is mixing async and sync.
 		if (this._async) {
-			return Promise.all(
-					argset.map(arg => this._parseAsync(arg, parsed, copy))
-				)
-				.then(() => this._parseCheckExtraArgs(copy))
-				.then(() => parsed);
+			return executeSequentially(
+				argset, arg => this._parseAsync(arg, parsed, copy)
+			)
+			.then(() => this._parseCheckExtraArgs(copy))
+			.then(() => parsed);
 		} else {
 			argset.forEach(arg => this._parseSync(arg, parsed, copy));
 			this._parseCheckExtraArgs(copy);
@@ -768,6 +768,12 @@ function defaultHelpHandler(args, commands) {
 		}
 	} else {
 		return Array.from(commands.values()).map(cmd => cmd.usage()).join('\n');
+	}
+}
+
+async function executeSequentially(values, func) {
+	for (const val of values) {
+		await func(val);
 	}
 }
 
