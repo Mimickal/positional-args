@@ -242,7 +242,8 @@ class Command {
 			);
 		}
 
-		return string.split(/\s+/);
+		// TODO maybe add ability to put args in quotes
+		return string.split(/\s+/).filter(Boolean);
 	}
 
 	/**

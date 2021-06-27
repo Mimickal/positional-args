@@ -313,6 +313,11 @@ describe('Positional command parser', function() {
 				])
 			});
 
+			it('Empty splits ignored', function() {
+				expect(Command.split('   mycmd  arg1	arg2	'))
+					.to.deep.equal(['mycmd', 'arg1', 'arg2']);
+			});
+
 			it('Exception thrown for non-string values', function() {
 				expect(() => Command.split({})).to.throw(
 					'string was [object Object], expected [object String]'
