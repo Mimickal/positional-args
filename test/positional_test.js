@@ -955,19 +955,42 @@ describe('Positional command parser', function() {
 	});
 
 	describe('CommandError', function() {
-		const err = new CommandError('hello');
 
-		it('CommandError is instanceof Error', function() {
-			expect(err).to.be.instanceof(CommandError);
-			expect(err).to.be.instanceof(Error);
+		it('Is instanceof Error', function() {
+			const cmderr = new CommandError();
+			expect(cmderr).to.be.instanceof(CommandError);
+			expect(cmderr).to.be.instanceof(Error);
 		});
 
-		it('CommandError has boolean set', function() {
-			expect(err.is_command_error).to.be.true;
+		it('Has boolean set', function() {
+			expect(new CommandError().is_command_error).to.be.true;
 		});
 
-		it('CommandError still behaves like Error', function() {
-			expect(err.message).to.equal('hello');
+		it('Still behaves like Error', function() {
+			const cmderr = new CommandError('hello');
+			expect(cmderr.message).to.equal('hello');
+		});
+
+		it('Can wrap other thrown things', function() {
+			const suberr = new RangeError('sub thing');
+			const cmderr = new CommandError('more info', suberr);
+			expect(cmderr.wrapped).to.equal(suberr);
+		});
+
+		describe('Full message', function() {
+
+			it('Just the outer message by default', function() {
+				const cmderr = new CommandError('hello');
+				expect(cmderr.full_message).to.equal('hello');
+			});
+
+			it('Includes wrapped error text', function() {
+				const cmderr1 = new CommandError('hello', new RangeError());
+				expect(cmderr1.full_message).to.equal('hello');
+
+				const cmderr2 = new CommandError('hello', new RangeError('goodbye'));
+				expect(cmderr2.full_message).to.equal('hello: goodbye');
+			});
 		});
 	});
 

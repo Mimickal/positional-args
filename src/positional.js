@@ -591,18 +591,28 @@ class Command {
 }
 
 /**
- * Gives us an object oriented way to catch known errors thrown during the
- * parsing phase of command execution. This allows us to pass parsing errors to
- * a separate handler, while allowing user-provided code to still throw its own
- * exceptions.
+ * Gives us an object oriented way to wrap any errors thrown during command
+ * parsing and execution.
  *
- * It might not be a bad idea to have your Argument preprocessor functions use
- * this for throwing errors.
+ * Anything thrown in user-provided code (handlers, preprocessors) will be
+ * contained within this Error object. This class also contains some additional
+ * context such as extended error messages and the Command the Error originated
+ * in, allowing callers to do command-specific error handling.
  */
 class CommandError extends Error {
-	constructor(message) {
+	constructor(message, wrapped) {
 		super(message);
 		this.is_command_error = true;
+		this.wrapped = wrapped;
+	}
+
+	get full_message() {
+		let msg = this.message;
+		// TODO handle wrapping another CommandError?
+		if (this.wrapped instanceof Error && this.wrapped.message) {
+			msg += `: ${this.wrapped.message}`;
+		}
+		return msg;
 	}
 }
 
