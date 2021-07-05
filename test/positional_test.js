@@ -214,10 +214,16 @@ describe('Positional command parser', function() {
 
 			it('Error thrown in preprocessor bubbles up', function() {
 				const arg = new Argument('test').preprocess(validator);
-				expect(() => arg.parse('xyz')).to.throw(
-					RangeError,
-					"Bad <test> value 'xyz': x is bad"
-				);
+				try {
+					arg.parse('xyz');
+					expect.fail('Parse should have thrown');
+				} catch (err) {
+					expect(err).to.be.instanceof(CommandError);
+					expect(err.nested).to.be.instanceof(RangeError);
+					expect(err.full_message).to.equal(
+						"Bad <test> value 'xyz': x is bad"
+					);
+				}
 			});
 
 			it('Error thrown in preprocessor bubbles up (async)', function() {
@@ -227,11 +233,17 @@ describe('Positional command parser', function() {
 				const arg2 = new Argument('test')
 					.asynchronous(true)
 					.preprocess(async () => { throw new RangeError('x is bad') });
-				return Promise.all([arg1, arg2].map(arg =>
-					expect(arg.parse('xyz')).to.be.rejectedWith(
-						RangeError,
-						"Bad <test> value 'xyz': x is bad"
-					)
+
+				// Gotta do this ridiculous promise chain to analyze error
+				return Promise.all([arg1, arg2].map(arg => arg.parse('xyz')
+					.then(() => expect.fail('Parse should have thrown'))
+					.catch(err => {
+						expect(err).to.be.instanceof(CommandError);
+						expect(err.nested).to.be.instanceof(RangeError);
+						expect(err.full_message).to.equal(
+							"Bad <test> value 'xyz': x is bad"
+						);
+					})
 				));
 			});
 
@@ -239,10 +251,16 @@ describe('Positional command parser', function() {
 				const arg = new Argument('test')
 					.preprocess(validator)
 					.varargs(true);
-				expect(() => arg.parse(['aaa', 'bxb', 'xcc'])).to.throw(
-					RangeError,
-					"Bad <test>(3) value 'xcc': x is bad"
-				);
+				try {
+					arg.parse(['aaa', 'bxb', 'xcc']);
+					expect.fail('Parse should have thrown');
+				} catch (err) {
+					expect(err).to.be.instanceof(CommandError);
+					expect(err.nested).to.be.instanceof(RangeError);
+					expect(err.full_message).to.equal(
+						"Bad <test>(3) value 'xcc': x is bad"
+					);
+				}
 			});
 
 			it('Error thrown in preprocessor bubbles up (varargs) (async)', function() {
@@ -250,10 +268,15 @@ describe('Positional command parser', function() {
 					.asynchronous(true)
 					.preprocess(validator)
 					.varargs(true);
-				return expect(arg.parse(['aaa', 'bxb', 'xcc'])).to.be.rejectedWith(
-					RangeError,
-					"Bad <test>(3) value 'xcc': x is bad"
-				);
+				return arg.parse(['aaa', 'bxb', 'xcc'])
+					.then(() => expect.fail('Parse should have thrown'))
+					.catch(err => {
+						expect(err).to.be.instanceof(CommandError);
+						expect(err.nested).to.be.instanceof(RangeError);
+						expect(err.full_message).to.equal(
+							"Bad <test>(3) value 'xcc': x is bad"
+						);
+					});
 			});
 
 			it('Error thrown for missing required argument', function() {
@@ -623,9 +646,16 @@ describe('Positional command parser', function() {
 					.addArgSet([ new Argument('xyz')
 						.preprocess(() => { throw new Error('some fun reason') })
 					]);
-				expect(() => cmd.execute(['a'])).to.throw(
-					"Bad <xyz> value 'a': some fun reason"
-				);
+				try {
+					cmd.execute(['a']);
+					expect.fail('Execute should have thrown');
+				} catch (err) {
+					expect(err).to.be.instanceof(CommandError);
+					expect(err.nested).to.be.instanceof(Error);
+					expect(err.full_message).to.equal(
+						"Bad <xyz> value 'a': some fun reason"
+					);
+				}
 			});
 
 			it('Error thrown for invalid argument bubbles up (async)', function() {
@@ -634,26 +664,45 @@ describe('Positional command parser', function() {
 						.preprocess(() => { throw new Error('some fun reason') })
 					])
 					.asynchronous(true);
-				return expect(cmd.execute(['a'])).to.be.rejectedWith(
-					"Bad <xyz> value 'a': some fun reason"
-				);
+				return cmd.execute(['a'])
+					.then(() => expect.fail('Execute should have thrown'))
+					.catch(err => {
+						expect(err).to.be.instanceof(CommandError);
+						expect(err.nested).to.be.instanceof(Error);
+						expect(err.full_message).to.equal(
+							"Bad <xyz> value 'a': some fun reason"
+						);
+					});
 			});
 
 			it('Error thrown in handler bubbles up', function() {
 				const cmd = new Command('test')
 					.handler(() => { throw new Error('Handler broke') });
-				expect(() => cmd.execute()).to.throw(
-					'Command failed: Handler broke'
-				);
+				try {
+					cmd.execute();
+					expect.fail('Execute should have thrown');
+				} catch (err) {
+					expect(err).to.be.instanceof(CommandError);
+					expect(err.nested).to.be.instanceof(Error);
+					expect(err.full_message).to.equal(
+						'Command failed: Handler broke'
+					);
+				}
 			});
 
 			it('Error thrown in handler bubbles up (async)', function() {
 				const cmd = new Command('test')
 					.asynchronous(true)
 					.handler(() => { throw new Error('Handler broke') });
-				return expect(cmd.execute()).to.be.rejectedWith(
-					'Command failed: Handler broke'
-				);
+				return cmd.execute()
+					.then(() => expect.fail('Execute should have thrown'))
+					.catch(err => {
+						expect(err).to.be.instanceof(CommandError);
+						expect(err.nested).to.be.instanceof(Error);
+						expect(err.full_message).to.equal(
+							'Command failed: Handler broke'
+						);
+					});
 			});
 
 			const arg = new Argument('arg')
@@ -667,16 +716,18 @@ describe('Positional command parser', function() {
 					.handler(() => { throw new Error('should not see this'); });
 
 				expect(() => cmd.execute()).to.not.throw;
-				cmd.execute();
-				expect(capture).to.be.an.instanceof(Error);
-				expect(capture.message).to.equal(
+				expect(cmd.execute()).to.be.undefined;
+				expect(capture).to.be.instanceof(CommandError);
+				expect(capture.nested).to.be.undefined;
+				expect(capture.full_message).to.equal(
 					'Too few arguments! Missing argument <arg>'
 				);
 
 				expect(() => cmd.execute(['abc'])).to.not.throw;
-				cmd.execute(['abc']);
-				expect(capture).to.be.an.instanceof(Error);
-				expect(capture.message).to.equal(
+				expect(cmd.execute(['abc'])).to.be.undefined;
+				expect(capture).to.be.instanceof(CommandError);
+				expect(capture.nested).to.be.instanceof(Error);
+				expect(capture.full_message).to.equal(
 					"Bad <arg> value 'abc': preprocess err"
 				);
 			});
@@ -689,10 +740,12 @@ describe('Positional command parser', function() {
 					.error(err => { capture = err; })
 					.handler(() => { throw new Error('should not see this'); });
 
-				return expect(cmd.execute(['abc'])).to.eventually.be.undefined
+				return expect(cmd.execute(['abc']))
+					.to.eventually.be.undefined
 					.then(() => {
-						expect(capture).to.be.an.instanceof(Error);
-						expect(capture.message).to.equal(
+						expect(capture).to.be.instanceof(CommandError);
+						expect(capture.nested).to.be.instanceof(Error);
+						expect(capture.full_message).to.equal(
 							"Bad <arg> value 'abc': preprocess err"
 						);
 					});
@@ -974,7 +1027,7 @@ describe('Positional command parser', function() {
 		it('Can wrap other thrown things', function() {
 			const suberr = new RangeError('sub thing');
 			const cmderr = new CommandError('more info', suberr);
-			expect(cmderr.wrapped).to.equal(suberr);
+			expect(cmderr.nested).to.equal(suberr);
 		});
 
 		describe('Full message', function() {
@@ -1275,15 +1328,31 @@ describe('Positional command parser', function() {
 				cmdreg.helpHandler(() => {
 					throw new Error('This thing broke');
 				});
-				expect(() => cmdreg.help('ignored')).to.throw('This thing broke');
+				try {
+					cmdreg.help('ignored');
+					expect.fail('Help should have thrown');
+				} catch (err) {
+					expect(err).to.be.instanceof(CommandError);
+					expect(err.nested).to.be.instanceof(Error);
+					expect(err.full_message).to.equal(
+						'Command failed: This thing broke'
+					);
+				}
 			});
 
 			it('Error from handler bubbles up (async)', function() {
 				asmreg.helpHandler(() => {
 					throw new Error('This thing broke');
 				});
-				return expect(asmreg.help('ignored'))
-					.to.be.rejectedWith('This thing broke');
+				return asmreg.help('ignored')
+					.then(() => expect.fail('Help should have thrown'))
+					.catch(err => {
+						expect(err).to.be.instanceof(CommandError);
+						expect(err.nested).to.be.instanceof(Error);
+						expect(err.full_message).to.equal(
+							'Command failed: This thing broke'
+						);
+					});
 			});
 		});
 
@@ -1308,7 +1377,16 @@ describe('Positional command parser', function() {
 					.add(new Command('test').handler(() => {
 						throw new Error('Bad things happened');
 					}));
-				expect(() => cmdreg.execute('test')).to.throw('Bad things happened');
+				try {
+					cmdreg.execute('test');
+					expect.fail('Execute should have thrown');
+				} catch (err) {
+					expect(err).to.be.instanceof(CommandError);
+					expect(err.nested).to.be.instanceof(Error);
+					expect(err.full_message).to.equal(
+						'Command failed: Bad things happened'
+					);
+				}
 			});
 
 			it('Error thrown from handler bubbles up (async)', function() {
@@ -1317,8 +1395,15 @@ describe('Positional command parser', function() {
 						throw new Error('Bad things happened');
 					}))
 					.asynchronous(true);
-				return expect(cmdreg.execute('test'))
-					.to.be.rejectedWith('Bad things happened');
+				return cmdreg.execute('test')
+					.then(() => expect.fail('Execute should have thrown'))
+					.catch(err => {
+						expect(err).to.be.instanceof(CommandError);
+						expect(err.nested).to.be.instanceof(Error);
+						expect(err.full_message).to.equal(
+							'Command failed: Bad things happened'
+						);
+					});
 			});
 		});
 

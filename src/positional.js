@@ -61,6 +61,7 @@ class Argument {
 	/**
 	 * Marks this argument as optional. Only the last argument in an argument
 	 * list may be optional.
+	 *
 	 * Returns this so we can chain calls.
 	 */
 	optional(enabled) {
@@ -166,10 +167,7 @@ class Argument {
 				arg_id += `(${index + 1})`;
 			}
 
-			// Edit message directly so we can rethrow with the same Error class
-			err.message = `Bad ${arg_id} value '${input}': ${err.message}`;
-
-			throw err;
+			throw new CommandError(`Bad ${arg_id} value '${input}'`, err);
 		};
 
 		try {
@@ -191,6 +189,7 @@ class Argument {
 	 * The return value of the given function will be forwarded to the command
 	 * handler. If the given function does not return anything, the argument
 	 * will be forwarded as-is.
+	 *
 	 * Returns this so we can chain calls.
 	 */
 	preprocess(func) {
@@ -223,6 +222,7 @@ class Argument {
 	 * Allows this argument to accept multiple values. Each individual argument
 	 * will be subject to the preprocessor, if one is given.
 	 * A varargs argument must be the last argument for a command.
+	 *
 	 * Returns this so we can chain calls.
 	 */
 	varargs(enabled) {
@@ -432,9 +432,8 @@ class Command {
 			try {
 				return this._handler(parsed_parts, ...forward);
 			} catch (err) {
-				// So we can rethrow with the same Error class
-				err.message = `Command failed: ${err.message}`;
-				return this._executeHandleError(err, ...forward);
+				const cmderr = new CommandError('Command failed', err);
+				return this._executeHandleError(cmderr, ...forward);
 			}
 		}
 	}
@@ -452,9 +451,8 @@ class Command {
 					resolve(this._handler(parsed_parts, ...forward));
 				})
 				.catch(err => {
-					// Bubble up to the next .catch with same Error class
-					err.message = `Command failed: ${err.message}`;
-					throw err;
+					// Bubble up to the next .catch with additional context
+					throw new CommandError('Command failed', err);
 				});
 			})
 			.catch(err => this._executeHandleError(err, ...forward));
@@ -600,17 +598,17 @@ class Command {
  * in, allowing callers to do command-specific error handling.
  */
 class CommandError extends Error {
-	constructor(message, wrapped) {
+	constructor(message, nested) {
 		super(message);
 		this.is_command_error = true;
-		this.wrapped = wrapped;
+		this.nested = nested;
 	}
 
 	get full_message() {
 		let msg = this.message;
 		// TODO handle wrapping another CommandError?
-		if (this.wrapped instanceof Error && this.wrapped.message) {
-			msg += `: ${this.wrapped.message}`;
+		if (this.nested instanceof Error && this.nested.message) {
+			msg += `: ${this.nested.message}`;
 		}
 		return msg;
 	}
