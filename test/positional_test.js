@@ -1269,14 +1269,17 @@ describe('Positional command parser', function() {
 			});
 
 			it('Can execute help as a command', function() {
+				cmdreg.helpHandler();
 				expect(cmdreg.execute('help')).to.equal(usage);
 			});
 
 			it('Can execute help as a command (async)', function() {
+				asmreg.helpHandler();
 				return expect(asmreg.execute('help')).to.eventually.equal(usage);
 			});
 
 			it('Can get help for a single command', function() {
+				cmdreg.helpHandler();
 				expect(cmdreg.help('com2')).to.equal(
 					'com2 <arg2>\n' +
 					'com2 <ver2> <ano>'
@@ -1284,6 +1287,7 @@ describe('Positional command parser', function() {
 			});
 
 			it('Can get help for a single command (async)', function() {
+				asmreg.helpHandler();
 				return expect(asmreg.help('com2')).to.eventually.equal(
 					'com2 <arg2>\n' +
 					'com2 <ver2> <ano>'
@@ -1292,10 +1296,12 @@ describe('Positional command parser', function() {
 
 			it('Args forwarded to handler', function() {
 				cmdreg.helpHandler((name, commands, arg1, arg2) => ({
+					cmds: commands,
 					arg1: arg1,
 					arg2: arg2,
 				}));
 				expect(cmdreg.help('ignored', 'aaa', {x: 'y'})).to.deep.equal({
+					cmds: cmdreg.commands,
 					arg1: 'aaa',
 					arg2: {x: 'y'},
 				});
@@ -1303,11 +1309,13 @@ describe('Positional command parser', function() {
 
 			it('Args forwarded to handler (async)', function() {
 				asmreg.helpHandler((name, commands, arg1, arg2) => ({
+					cmds: commands,
 					arg1: arg1,
 					arg2: arg2,
 				}));
 				return expect(asmreg.help('ignored', 'aaa', {x: 'y'}))
 					.to.eventually.deep.equal({
+						cmds: asmreg.commands,
 						arg1: 'aaa',
 						arg2: {x: 'y'},
 					});

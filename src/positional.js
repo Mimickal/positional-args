@@ -717,10 +717,14 @@ class CommandRegistry {
 		const executeInner = () => {
 			const parts = Command.split(string);
 			const cmd_name = parts.shift();
-			if (cmd_name === 'help') {
-				return this.help(parts[0], ...forward);
-			} else if (this.commands.has(cmd_name)) {
-				return this.commands.get(cmd_name).execute(parts, ...forward);
+
+			if (this.commands.has(cmd_name)) {
+				const mod_forward = [...forward];
+				if (cmd_name === 'help') {
+					mod_forward.unshift(this.commands);
+				}
+
+				return this.commands.get(cmd_name).execute(parts, ...mod_forward);
 			} else if (this._default_handler) {
 				return this._default_handler([cmd_name, ...parts], ...forward);
 			}
@@ -739,17 +743,8 @@ class CommandRegistry {
 	 * will be forwarded to the help handler.
 	 */
 	help(cmd_name, ...forward) {
-		const helpInner = () => {
-			const helpcmd = this.commands.get('help');
-			if (helpcmd) {
-				const parts = cmd_name ? [cmd_name] : [];
-				return helpcmd.execute(parts, this.commands, ...forward);
-			}
-		};
-
-		return this._async ?
-			new Promise(resolve => resolve(helpInner())) :
-			helpInner();
+		cmd_name = cmd_name || '';
+		return this.execute(`help ${cmd_name}`, ...forward);
 	}
 
 	/**
