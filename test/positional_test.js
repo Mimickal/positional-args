@@ -651,6 +651,7 @@ describe('Positional command parser', function() {
 					expect.fail('Execute should have thrown');
 				} catch (err) {
 					expect(err).to.be.instanceof(CommandError);
+					expect(err.command).to.equal(cmd);
 					expect(err.nested).to.be.instanceof(Error);
 					expect(err.full_message).to.equal(
 						"Bad <xyz> value 'a': some fun reason"
@@ -668,6 +669,7 @@ describe('Positional command parser', function() {
 					.then(() => expect.fail('Execute should have thrown'))
 					.catch(err => {
 						expect(err).to.be.instanceof(CommandError);
+						expect(err.command).to.equal(cmd);
 						expect(err.nested).to.be.instanceof(Error);
 						expect(err.full_message).to.equal(
 							"Bad <xyz> value 'a': some fun reason"
@@ -683,6 +685,7 @@ describe('Positional command parser', function() {
 					expect.fail('Execute should have thrown');
 				} catch (err) {
 					expect(err).to.be.instanceof(CommandError);
+					expect(err.command).to.equal(cmd);
 					expect(err.nested).to.be.instanceof(Error);
 					expect(err.full_message).to.equal(
 						'Command failed: Handler broke'
@@ -698,6 +701,7 @@ describe('Positional command parser', function() {
 					.then(() => expect.fail('Execute should have thrown'))
 					.catch(err => {
 						expect(err).to.be.instanceof(CommandError);
+						expect(err.command).to.equal(cmd);
 						expect(err.nested).to.be.instanceof(Error);
 						expect(err.full_message).to.equal(
 							'Command failed: Handler broke'
@@ -718,6 +722,7 @@ describe('Positional command parser', function() {
 				expect(() => cmd.execute()).to.not.throw;
 				expect(cmd.execute()).to.be.undefined;
 				expect(capture).to.be.instanceof(CommandError);
+				expect(capture.command).to.equal(cmd);
 				expect(capture.nested).to.be.undefined;
 				expect(capture.full_message).to.equal(
 					'Too few arguments! Missing argument <arg>'
@@ -726,6 +731,7 @@ describe('Positional command parser', function() {
 				expect(() => cmd.execute(['abc'])).to.not.throw;
 				expect(cmd.execute(['abc'])).to.be.undefined;
 				expect(capture).to.be.instanceof(CommandError);
+				expect(capture.command).to.equal(cmd);
 				expect(capture.nested).to.be.instanceof(Error);
 				expect(capture.full_message).to.equal(
 					"Bad <arg> value 'abc': preprocess err"
@@ -744,6 +750,7 @@ describe('Positional command parser', function() {
 					.to.eventually.be.undefined
 					.then(() => {
 						expect(capture).to.be.instanceof(CommandError);
+						expect(capture.command).to.equal(cmd);
 						expect(capture.nested).to.be.instanceof(Error);
 						expect(capture.full_message).to.equal(
 							"Bad <arg> value 'abc': preprocess err"
@@ -801,49 +808,84 @@ describe('Positional command parser', function() {
 					.asynchronous(true);
 
 				it('Error thrown for no args', function() {
-					expect(() => cmd.parse([])).to.throw(
-						CommandError,
-						'Too few arguments! Missing argument <aaa>'
-					);
+					try {
+						cmd.parse([]);
+						expect.fail('Parse should have thrown');
+					} catch (err) {
+						expect(err).to.be.instanceof(CommandError);
+						expect(err.command).to.equal(cmd);
+						expect(err.nested).to.be.undefined;
+						expect(err.full_message).to.equal(
+							'Too few arguments! Missing argument <aaa>'
+						);
+					}
 				});
 
 				it('Error thrown for no args (async)', function() {
-					return expect(asc.parse([])).to.be.rejectedWith(
-						CommandError,
-						'Too few arguments! Missing argument <aaa>'
-					);
+					return asc.parse([])
+						.then(() => expect.fail('Parse should have thrown'))
+						.catch(err => {
+							expect(err).to.be.instanceof(CommandError);
+							expect(err.command).to.equal(asc);
+							expect(err.nested).to.be.undefined;
+							expect(err.full_message).to.equal(
+								'Too few arguments! Missing argument <aaa>'
+							);
+						});
 				});
 
 				it('Error thrown for missing args', function() {
-					expect(() => cmd.parse(['hello'])).to.throw(
-						CommandError,
-						'Too few arguments! Missing argument <bbb>'
-					);
+					try {
+						cmd.parse(['hello']);
+						expect.fail('Parse should have thrown');
+					} catch (err) {
+						expect(err).to.be.instanceof(CommandError);
+						expect(err.command).to.equal(cmd);
+						expect(err.nested).to.be.undefined;
+						expect(err.full_message).to.equal(
+							'Too few arguments! Missing argument <bbb>'
+						);
+					}
 				});
 
 				it('Error thrown for missing args (async)', function() {
-					return expect(asc.parse(['hello'])).to.be.rejectedWith(
-						CommandError,
-						'Too few arguments! Missing argument <bbb>'
-					);
+					return asc.parse(['hello'])
+						.then(() => expect.fail('Parse should have thrown'))
+						.catch(err => {
+							expect(err).to.be.instanceof(CommandError);
+							expect(err.command).to.equal(asc);
+							expect(err.nested).to.be.undefined;
+							expect(err.full_message).to.equal(
+								'Too few arguments! Missing argument <bbb>'
+							);
+						});
 				});
 
 				it('Error thrown for too many args', function() {
-					expect(() =>
+					try {
 						cmd.parse(['hello', 'goodbye', 'things', 'stuff'])
-					).to.throw(
-						CommandError,
-						"Too many arguments! Extras: 'things', 'stuff'"
-					);
+						expect.fail('Parse should have thrown');
+					} catch (err) {
+						expect(err).to.be.instanceof(CommandError);
+						expect(err.command).to.equal(cmd);
+						expect(err.nested).to.be.undefined;
+						expect(err.full_message).to.equal(
+							"Too many arguments! Extras: 'things', 'stuff'"
+						);
+					}
 				});
 
 				it('Error thrown for too many args (async)', function() {
-					return expect(
-						asc.parse(['hello', 'goodbye', 'things', 'stuff'])
-					).to.be.rejectedWith(
-						CommandError,
-						"Too many arguments! Extras: 'things', 'stuff'"
-					);
+					return asc.parse(['hello', 'goodbye', 'things', 'stuff'])
+						.then(() => expect.fail('Parse should have thrown'))
+						.catch(err => {
+							expect(err).to.be.instanceof(CommandError);
+							expect(err.command).to.equal(asc);
+							expect(err.nested).to.be.undefined;
+							expect(err.full_message).to.equal(
+								"Too many arguments! Extras: 'things', 'stuff'"
+							);
+						});
 				});
 			});
 
@@ -876,24 +918,45 @@ describe('Positional command parser', function() {
 				});
 
 				it('Error thrown if no argset matches (too few args)', function() {
-					expect(() => cmd.parse([])).to.throw(
-						CommandError,
-						'Wrong number of arguments! See command help for details'
-					);
+					try {
+						cmd.parse([]);
+						expect.fail('Parse should have thrown');
+					} catch (err) {
+						expect(err).to.be.instanceof(CommandError);
+						expect(err.command).to.equal(cmd);
+						expect(err.nested).to.be.undefined;
+						expect(err.full_message).to.equal(
+							'Wrong number of arguments! See command help for details'
+						);
+					}
 				});
 
 				it('Error thrown if no argset matches (middle args)', function() {
-					expect(() => cmd.parse(['xx', 'yy'])).to.throw(
-						CommandError,
-						'Wrong number of arguments! See command help for details'
-					);
+					try {
+						cmd.parse(['xx', 'yy']);
+						expect.fail('Parse should have thrown');
+					} catch (err) {
+						expect(err).to.be.instanceof(CommandError);
+						expect(err.command).to.equal(cmd);
+						expect(err.nested).to.be.undefined;
+						expect(err.full_message).to.equal(
+							'Wrong number of arguments! See command help for details'
+						);
+					}
 				});
 
 				it('Error thrown if no argset matches (too many args)', function() {
-					expect(() => cmd.parse(['xx', 'yy', 'zz', 'ii', 'jj'])).to.throw(
-						CommandError,
-						'Wrong number of arguments! See command help for details'
-					);
+					try {
+						cmd.parse(['xx', 'yy', 'zz', 'ii', 'jj'])
+						expect.fail('Parse should have thrown');
+					} catch (err) {
+						expect(err).to.be.instanceof(CommandError);
+						expect(err.command).to.equal(cmd);
+						expect(err.nested).to.be.undefined;
+						expect(err.full_message).to.equal(
+							'Wrong number of arguments! See command help for details'
+						);
+					}
 				});
 
 				it('Error thrown if no argset matches (async)', function() {
@@ -905,10 +968,16 @@ describe('Positional command parser', function() {
 							new Argument('ddd'),
 						])
 						.asynchronous(true);
-					return expect(asm.parse(['xx', 'yy'])).to.be.rejectedWith(
-						CommandError,
-						'Wrong number of arguments! See command help for details'
-					);
+					return asm.parse(['xx', 'yy'])
+						.then(() => expect.fail('Parse should have thrown'))
+						.catch(err => {
+							expect(err).to.be.instanceof(CommandError);
+							expect(err.command).to.equal(asm);
+							expect(err.nested).to.be.undefined;
+							expect(err.full_message).to.equal(
+								'Wrong number of arguments! See command help for details'
+							);
+						});
 				});
 			});
 
@@ -1127,6 +1196,7 @@ describe('Positional command parser', function() {
 				const cmdreg = new CommandRegistry()
 					.defaultHandler();
 				expect(() => cmdreg.execute('unknown')).to.throw(
+					Error,
 					"Unrecognized command 'unknown'"
 				);
 			});
@@ -1136,6 +1206,7 @@ describe('Positional command parser', function() {
 					.asynchronous(true)
 					.defaultHandler();
 				return expect(cmdreg.execute('unknown')).to.be.rejectedWith(
+					Error,
 					"Unrecognized command 'unknown'"
 				);
 			});
@@ -1190,6 +1261,7 @@ describe('Positional command parser', function() {
 						throw new Error('I have a problem');
 					});
 				expect(() => cmdreg.execute('unknown')).to.throw(
+					Error,
 					'I have a problem'
 				);
 			});
@@ -1201,6 +1273,7 @@ describe('Positional command parser', function() {
 						throw new Error('I have a problem');
 					});
 				expect(cmdreg.execute('unknown')).to.be.rejectedWith(
+					Error,
 					'I have a problem'
 				);
 			});
@@ -1341,6 +1414,7 @@ describe('Positional command parser', function() {
 					expect.fail('Help should have thrown');
 				} catch (err) {
 					expect(err).to.be.instanceof(CommandError);
+					expect(err.command).to.equal(cmdreg.commands.get('help'));
 					expect(err.nested).to.be.instanceof(Error);
 					expect(err.full_message).to.equal(
 						'Command failed: This thing broke'
@@ -1356,6 +1430,7 @@ describe('Positional command parser', function() {
 					.then(() => expect.fail('Help should have thrown'))
 					.catch(err => {
 						expect(err).to.be.instanceof(CommandError);
+						expect(err.command).to.equal(asmreg.commands.get('help'));
 						expect(err.nested).to.be.instanceof(Error);
 						expect(err.full_message).to.equal(
 							'Command failed: This thing broke'
@@ -1390,6 +1465,7 @@ describe('Positional command parser', function() {
 					expect.fail('Execute should have thrown');
 				} catch (err) {
 					expect(err).to.be.instanceof(CommandError);
+					expect(err.command).to.equal(cmdreg.commands.get('test'));
 					expect(err.nested).to.be.instanceof(Error);
 					expect(err.full_message).to.equal(
 						'Command failed: Bad things happened'
@@ -1407,6 +1483,7 @@ describe('Positional command parser', function() {
 					.then(() => expect.fail('Execute should have thrown'))
 					.catch(err => {
 						expect(err).to.be.instanceof(CommandError);
+						expect(err.command).to.equal(cmdreg.commands.get('test'));
 						expect(err.nested).to.be.instanceof(Error);
 						expect(err.full_message).to.equal(
 							'Command failed: Bad things happened'

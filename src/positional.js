@@ -460,6 +460,8 @@ class Command {
 
 	/// De-duplicated logic for passing execution errors to the error handler.
 	_executeHandleError(err, ...forward) {
+		err = this._wrap(err);
+
 		if (this._err_handler) {
 			return this._err_handler(err, ...forward);
 		}
@@ -528,9 +530,9 @@ class Command {
 			argset = this._argsets.find(set => set.length === copy.length);
 
 			if (!argset) {
-				const err = new CommandError(
+				const err = this._wrap(new CommandError(
 					'Wrong number of arguments! See command help for details'
-				);
+				));
 				if (this._async) return Promise.reject(err);
 				throw err;
 			}
@@ -547,11 +549,16 @@ class Command {
 				argset, arg => this._parseAsync(arg, parsed, copy)
 			)
 			.then(() => this._parseCheckExtraArgs(copy))
-			.then(() => parsed);
+			.then(() => parsed)
+			.catch(err => { throw this._wrap(err) });
 		} else {
-			argset.forEach(arg => this._parseSync(arg, parsed, copy));
-			this._parseCheckExtraArgs(copy);
-			return parsed;
+			try {
+				argset.forEach(arg => this._parseSync(arg, parsed, copy));
+				this._parseCheckExtraArgs(copy);
+				return parsed;
+			} catch (err) {
+				throw this._wrap(err);
+			}
 		}
 	}
 
@@ -580,11 +587,20 @@ class Command {
 	/// Shared check for extraneous args used by both sync and async workflow
 	_parseCheckExtraArgs(parts_ref) {
 		if (parts_ref.length > 0) {
+			// We'll catch and wrap this later
 			throw new CommandError(
 				'Too many arguments! Extras: ' +
-				parts_ref.map(val => `'${val}'`).join(', ')
+				parts_ref.map(val => `'${val}'`).join(', '),
 			);
 		}
+	}
+
+	/// Injects this command instance into CommandErrors
+	_wrap(err) {
+		if (err instanceof CommandError) {
+			err.command = this;
+		}
+		return err;
 	}
 }
 
@@ -598,10 +614,11 @@ class Command {
  * in, allowing callers to do command-specific error handling.
  */
 class CommandError extends Error {
-	constructor(message, nested) {
+	constructor(message, nested_err) {
 		super(message);
+		this.command = undefined;
 		this.is_command_error = true;
-		this.nested = nested;
+		this.nested = nested_err;
 	}
 
 	get full_message() {
