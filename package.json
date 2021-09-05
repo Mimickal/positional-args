@@ -2,7 +2,15 @@
   "name": "positional-args",
   "version": "0.0.0",
   "description": "Positional argument parser",
-  "main": "index.js",
+  "main": "src/positional.js",
+  "homepage": "https://www.npmjs.com/package/positional-args",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mimickal/positional-args.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Mimickal/positional-args/issues"
+  },
   "scripts": {
     "test": "mocha",
     "test:coverage": "nyc --reporter=text mocha"
