@@ -12,6 +12,7 @@
     "url": "https://github.com/Mimickal/positional-args/issues"
   },
   "scripts": {
+    "release": "node build/release.js",
     "test": "mocha",
     "test:coverage": "nyc --reporter=text mocha"
   },
