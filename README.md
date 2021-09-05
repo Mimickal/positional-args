@@ -38,6 +38,8 @@ npm install positional-args
 ```
 
 ## Usage
+[See full API here](API.md)
+
 Coming soon!
 
 ## License

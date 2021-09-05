@@ -12,6 +12,7 @@
     "url": "https://github.com/Mimickal/positional-args/issues"
   },
   "scripts": {
+    "regen-docs": "npx jsdoc2md src/positional.js > API.md",
     "release": "node build/release.js",
     "test": "mocha",
     "test:coverage": "nyc --reporter=text mocha"
@@ -19,6 +20,7 @@
   "devDependencies": {
     "chai": "^4.3.4",
     "chai-as-promised": "^7.1.1",
+    "jsdoc-to-markdown": "^7.0.1",
     "mocha": "^8.4.0",
     "nyc": "^15.1.0"
   },
