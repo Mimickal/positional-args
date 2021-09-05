@@ -729,9 +729,11 @@ class CommandRegistry {
 	 * In all cases, arbitrary additional values can be forwarded to the
 	 * handlers.
 	 */
-	execute(string, ...forward) {
+	execute(parts, ...forward) {
 		const executeInner = () => {
-			const parts = Command.split(string);
+			if (isString(parts)) {
+				parts = Command.split(parts);
+			}
 			const cmd_name = parts.shift();
 
 			if (this.commands.has(cmd_name)) {

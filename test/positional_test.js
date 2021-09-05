@@ -1455,6 +1455,12 @@ describe('Positional command parser', function() {
 					.to.eventually.equal('My cool thing');
 			});
 
+			it('Can provide arg array instead of string', function() {
+				const cmdreg = new CommandRegistry()
+					.add(new Command('com').handler(() => 'Cool stuff'));
+				expect(cmdreg.execute(['com'])).to.equal('Cool stuff');
+			});
+
 			it('Error thrown from handler bubbles up', function() {
 				const cmdreg = new CommandRegistry()
 					.add(new Command('test').handler(() => {
