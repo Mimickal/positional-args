@@ -1,9 +1,9 @@
 /*******************************************************************************
- * This file is part of No BS Role Reacts, a role-assigning Discord bot.
- * Copyright (C) 2020 Mimickal (Mia Moretti).
+ * This file is part of positional-args, an argument parsing library for Node.js
+ * Copyright (C) 2021 Mimickal (Mia Moretti).
  *
- * No BS Role Reacts is free software under the GNU Affero General Public
- * License v3.0. See LICENSE or <https://www.gnu.org/licenses/agpl-3.0.en.html>
+ * positional-args is free software under the GNU Lesser General Public License
+ * v3.0. See LICENSE.md or <https://www.gnu.org/licenses/lgpl-3.0.en.html>
  * for more information.
  ******************************************************************************/
 const chai = require('chai');

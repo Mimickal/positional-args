@@ -1,5 +1,9 @@
 # positional-args - Node.js positional argument parser
 
+<a href="LICENSE.md"><img align="right" alt="AGPL-3.0 Logo"
+src="https://www.gnu.org/graphics/lgplv3-with-text-154x68.png">
+</a>
+
 This library is a positional argument parser for Node.js. The API is flexible
 enough to parse just single arguments, or define an entire set of positional
 commands. Commands can be parsed from strings or arrays, allowing this library
