@@ -1,9 +1,33 @@
 # positional-args - Node.js positional argument parser
 
-This library is a positional argument parser for Node.js. The API is flexible
-enough to parse just single arguments, or define an entire set of positional
-commands. Commands can be parsed from strings or arrays, allowing this library
-to be used both for command-line arguments and things like Discord bots.
+<a href="LICENSE.md"><img align="right" alt="AGPL-3.0 Logo"
+src="https://www.gnu.org/graphics/lgplv3-with-text-154x68.png">
+</a>
+
+This library was originally written to be a lightweight, unintrusive alternative
+to [Commando](https://www.npmjs.com/package/discord.js-commando) for Discord
+bots.
+
+Unlike other argument parsers, this library is built specifically for positional
+arguments, allowing it to provide much more functionality and control over how
+positional arguments are interpreted. It also doesn't force you to restructure
+your code to use it. All the individual pieces are exposed and work standalone,
+so you only have to use as much of the library as you need.
+
+Features:
+- No external dependencies.
+- Lightweight, unintrusive API that doesn't change the paradigm of your code.
+- Each class of the library is exposed, so you can use as much or as little as
+  you want.
+- Parses from strings or arrays from any source.
+- Validate and transform arguments with user-specified functions.
+- Provides parsed arguments in a format similar to other argparse libraries,
+  such as [yargs](https://www.npmjs.com/package/yargs).
+- Define commands with multiple argument lists and auto-generated help text.
+- Command registry can consume a command string and delegate it to the
+  appropriate command.
+- Async / Promise friendly. All user-specified functions may be async.
+- Useful alternative to Commando.js for Discord bots.
 
 ## Installation
 

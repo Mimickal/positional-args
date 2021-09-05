@@ -1,10 +1,25 @@
 {
   "name": "positional-args",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Positional argument parser",
-  "main": "index.js",
+  "main": "src/positional.js",
+  "homepage": "https://www.npmjs.com/package/positional-args",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mimickal/positional-args.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Mimickal/positional-args/issues"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha",
+    "test:coverage": "nyc --reporter=text mocha"
+  },
+  "devDependencies": {
+    "chai": "^4.3.4",
+    "chai-as-promised": "^7.1.1",
+    "mocha": "^8.4.0",
+    "nyc": "^15.1.0"
   },
   "keywords": [
     "command-line",
