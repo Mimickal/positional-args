@@ -23,6 +23,10 @@
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array
  */
 /**
+ * @external Error
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error
+ */
+/**
  * @external Map
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
  */
@@ -684,22 +688,48 @@ class Command {
 }
 
 /**
- * Gives us an object oriented way to wrap any errors thrown during command
- * parsing and execution.
+ * Error thrown during execution of {@link Argument}, {@link Command}, and
+ * {@link CommandRegistry} objects.
  *
- * Anything thrown in user-provided code (handlers, preprocessors) will be
- * contained within this Error object. This class also contains some additional
- * context such as extended error messages and the Command the Error originated
- * in, allowing callers to do command-specific error handling.
+ * Anything thrown in user-provided code (command handlers and argument
+ * preprocessors) is wrapped with a `CommandError`. The `CommandError` instance
+ * also contains additional context, such as extended error messages and a
+ * reference to the {@link Command} that threw (if any). This allows callers
+ * to do command-specific error handling, if necessary.
+ *
+ * @extends {external:Error}
+ * @typicalname err
  */
 class CommandError extends Error {
+
+	/**
+	 * The {@link Command} this `CommandError` originated in, if any.
+	 */
+	command = undefined;
+
+	/**
+	 * A simple flag callers can check to see if an `Error` is a `CommandError`.
+	 * This field is always `true`, and is provided only as an alternative to
+	 * `error instanceof CommandError`.
+	 */
+	is_command_error = true;
+
+	/**
+	 * The value that was actually thrown in the user code. This could be
+	 * anything.
+	 */
+	nested = null;
+
 	constructor(message, nested_err) {
 		super(message);
-		this.command = undefined;
-		this.is_command_error = true;
 		this.nested = nested_err;
 	}
 
+	/**
+	 * Gets this `CommandError`'s `message` combined with `nested.message`, if
+	 * `nested` is an {@link external:Error}. Otherwise, this value is identical
+	 * to {@link CommandError.message}.
+	 */
 	get full_message() {
 		let msg = this.message;
 		// TODO handle wrapping another CommandError?
@@ -710,7 +740,14 @@ class CommandError extends Error {
 	}
 }
 
-/// Error thrown when setting up Argument, Command, or CommandRegistry objects.
+/**
+ * Error thrown when setting up {@link Argument}, {@link Command}, and
+ * {@link CommandRegistry} objects. These are typically thrown for invalid
+ * values, such as passing non-Function values for handler functions.
+ *
+ * @extends {external:Error}
+ * @typicalname err
+ */
 class SetupError extends Error {
 	constructor(message) {
 		super(message);
@@ -907,7 +944,7 @@ class CommandRegistry {
 	 * @param {external:String|external:String[]} parts A string containing a
 	 *     command, or a pre-split {@link external:Array} of command parts.
 	 * @param {?any[]} forward Arbitrary additional values passed to handler.
-	 * @throws {any} Anything thrown in handler.
+	 * @throws {CommandError} Wraps anything thrown in handler.
 	 * @return {?any} Return value forwarded back to caller.
 	 * @return {Promise<?any>} In async mode.
 	 * @example
@@ -956,7 +993,7 @@ class CommandRegistry {
 	 *     for. In order to omit this value while providing forwarded arguments,
 	 *     pass in a falsy value, like `null`.
 	 * @param {?any[]} forward Arbitrary additional values passed to handler.
-	 * @throws {any} Anything thrown in handler.
+	 * @throws {CommandError} Wraps anything thrown in handler.
 	 * @return {?any} Return value forwarded back to caller.
 	 * @return {Promise<?any>} In async mode.
 	 * @example
