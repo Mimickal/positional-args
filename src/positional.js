@@ -16,6 +16,86 @@
 // recommend reading this excellent article on Promises:
 // https://pouchdb.com/2015/05/18/we-have-a-problem-with-promises.html
 
+
+// Define references for JSDoc
+/**
+ * @external Array
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array
+ */
+/**
+ * @external Map
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+ */
+/**
+ * @external Object
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+ */
+/**
+ * @external Promise
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
+ */
+/**
+ * @external String
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String
+ */
+/**
+ * An {@link external:Object} of parsed arguments for a command. Matches the
+ * format from other argument parsing libraries, such as
+ * <a href="https://www.npmjs.com/package/yargs">Yargs</a>.
+ *
+ * @typedef Args
+ * @example
+ * {
+ *   _: ['my', 'cool', 'args']
+ *   arg1: 'my',
+ *   arg2: 'cool',
+ *   arg3: 'args',
+ * }
+ */
+/**
+ * The function a {@link CommandRegistry} can optionally call when it gets an
+ * unrecognized command.
+ *
+ * **NOTE** the arguments passed to a `DefaultHandler` function are slightly
+ * different than a normal `Handler`. It gets the string array of command parts
+ * instead of a parsed hash of arguments.
+ *
+ * @callback DefaultHandler
+ * @param {external:String[]} cmd_parts Array of command parts from
+ *     {@link Command.split}.
+ * @param {?any[]} forward Arbitrary additional values passed into
+ *     {@link CommandRegistry.execute}.
+ * @return {?any} Return value forwarded back to caller.
+ * @return {Promise<?any>} In async mode.
+ * @example
+ * // Replying to a Discord.js message
+ * function myDefaultHandler(cmd_parts, message) {
+ *     return message.reply('Unrecognized command ' + cmd_parts.shift());
+ * }
+ */
+/**
+ * The function a {@link CommandRegistry} can optionally use for its help
+ * command.
+ *
+ * **NOTE** the arguments passed to a `HelpHandler` function are slightly
+ * different than a normal `Handler`. It gets the `CommandRegistry`'s command
+ * map as the second parameter.
+ *
+ * @callback HelpHandler
+ * @param {Args} args Argument hash containing the following:
+ *     - command - The command name.
+ * @param {Map<Command>} commands The `CommandRegistry`'s Map of commands.
+ * @param {?any[]} forward Arbitrary additional values passed into
+ *     {@link CommandRegistry.execute}.
+ * @return {?any} Return value forwarded back to caller.
+ * @return {Promise<?any>} In async mode.
+ * @example
+ * // Replying to a Discord.js message
+ * function myHelpHandler(args, commands, message) {
+ *     return message.reply(commands.get(args.command).usage());
+ * }
+ */
+
 /**
  * Represents a single positional argument for a command.
  */
@@ -640,21 +720,120 @@ class SetupError extends Error {
 /**
  * A registry containing commands. Can take in command strings and delegate them
  * to the appropriate commands.
+ *
+ * @typicalname registry
  */
 class CommandRegistry {
 
 	/**
-	 * Sets up the Map that contains all of the commands.
+	 * An optional default handler for unrecognized commands. Simply throws an
+	 * error.
+	 *
+	 * @see {@link DefaultHandler}
+	 * @param {external:String[]} cmd_parts Array of command parts from
+	 *     {@link Command.split}.
+	 * @throws {Error} Always
 	 */
-	constructor() {
-		this.commands = new Map();
-		this._async = false;
-		this._default_handler = null;
+	static defaultDefaultHandler(cmd_parts) {
+		const cmd_name = cmd_parts.shift();
+		throw new Error(`Unrecognized command '${cmd_name}'`);
 	}
 
 	/**
-	 * Adds a new command to the registry. All commands must have unique names.
-	 * Returns this so we can chain calls.
+	 * An optional default handler for the help command. Returns the usage for
+	 * the given command, according to its {@link Command.usage} function. If no
+	 * command name is given, returns the usage for all known commands,
+	 * separated by newlines.
+	 *
+	 * @see {@link HelpHandler}
+	 * @param {Args} args Argument hash containing at least `command`
+	 * @param {Map<Command>} commands The `Map` of `Commands` in the registry.
+	 * @return {external:String} Description of the given command, or all known
+	 *     commands.
+	 */
+	static defaultHelpHandler(args, commands) {
+		if (args.command) {
+			const cmd = commands.get(args.command);
+			if (cmd) {
+				return cmd.usage();
+			} else {
+				return `Unknown command '${args.command}'`;
+			}
+		} else {
+			return Array.from(commands.values())
+				.map(cmd => cmd.usage())
+				.join('\n');
+		}
+	}
+
+	/**
+	 * The {@link external:Map} of {@link Command} objects. Useful for iterating.
+	 *
+	 * @category accessor
+	 */
+	commands = new Map();
+	#is_async = false;
+	#default_handler = null;
+
+	/**
+	 * Directly get and set this `CommandRegistry`'s asynchronous mode.
+	 * Setting this has the same effect as calling
+	 * {@link CommandRegistry.asynchronous}.
+	 *
+	 * @see {@link CommandRegistry.asynchronous}
+	 * @category accessor
+	 */
+	set is_async(enabled) {
+		if (!isBoolean(enabled)) {
+			throw new SetupError(
+				`enabled was ${type(enabled)}, expected [object Boolean]`
+			);
+		}
+
+		this.#is_async = enabled;
+		this.#applyAsyncToCommands();
+	}
+	get is_async() {
+		return this.#is_async;
+	}
+
+	/**
+	 * Directly get and set this `CommandRegistry`'s default handler function
+	 * for unrecognized commands. Setting this has the same effect as calling
+	 * {@link CommandRegistry.defaultHandler}.
+	 *
+	 * @see {@link CommandRegistry.defaultHandler}
+	 * @category accessor
+	 */
+	set default_handler(func) {
+		if (!isFunction(func) && !isAsyncFunction(func)) {
+			throw new SetupError(`func was ${type(func)}, ` +
+				'expected [object Function] or [object AsyncFunction]'
+			);
+		}
+
+		this.#default_handler = func;
+	}
+	get default_handler() {
+		return this.#default_handler;
+	}
+
+	/**
+	 * Creates a new `CommandRegistry`.
+	 */
+	constructor() { }
+
+	/**
+	 * Adds a {@link Command} to this `CommandRegistry`. All commands must have
+	 * unique names. If this `CommandRegistry` is in async mode, the
+	 * `Command` will be switched to async mode too.
+	 *
+	 * @category builder
+	 * @param {Command} command The command to add.
+	 * @throws {SetupError} For non-`Command` values.
+	 * @throws {SetupError} If the `CommandRegistry` already has a `Command`
+	 *     with the given name.
+	 * @return {CommandRegistry} instance so we can chain calls.
 	 */
 	add(command) {
 		if (!(command instanceof Command)) {
@@ -667,67 +846,78 @@ class CommandRegistry {
 		}
 
 		this.commands.set(command._name, command);
-		this._applyAsyncToCommands();
+		this.#applyAsyncToCommands();
 		return this;
 	}
 
 	/**
-	 * Sets every command and argument in this registry to async mode. In async
-	 * mode, <code>help</code> and <code>execute</code> will both return
-	 * Promises that resolve/reject based on the command execution.
+	 * Puts this `CommandRegistry` in async mode. In async mode,
+	 * {@link CommandRegistry.help} and {@link CommandRegistry.execute} will
+	 * both return a {@link external:Promise} that fulfills based on the command
+	 * execution. This setting is applied recursively to all {@link Command}s
+	 * and {@link Argument}s in this `CommandRegistry`.
 	 *
-	 * This setting will be applied to all new and existing commands.
-	 *
-	 * Returns this so we can chain calls.
+	 * @category builder
+	 * @param {Boolean} enabled `true` to enable async, `false` to disable.
+	 * @throws {SetupError} for non-`Boolean` values.
+	 * @return {CommandRegistry} instance so we can chain calls.
 	 */
 	asynchronous(enabled) {
-		if (!isBoolean(enabled)) {
-			throw new SetupError(
-				`enabled was ${type(enabled)}, expected [object Boolean]`
-			);
-		}
-
-		this._async = enabled;
-		this._applyAsyncToCommands();
+		this.is_async = enabled;
 		return this
 	}
 
-	/// Recursively apply this CommandRegistry's async setting to all commands.
-	_applyAsyncToCommands() {
-		this.commands.forEach(cmd => cmd.asynchronous(this._async));
+	/**
+	 * Recursively apply this CommandRegistry's async setting to all commands.
+	 */
+	#applyAsyncToCommands() {
+		this.commands.forEach(cmd => cmd.asynchronous(this.is_async));
 	}
 
 	/**
-	 * Sets up a handler function for unrecognized commands (or the default
-	 * handler, if none is specified. See <code>defaultDefaultHandler</code>).
+	 * Sets up a handler function for unrecognized commands.
 	 * If this is not set, unknown commands are a no-op.
 	 *
-	 * NOTE the default handler function signature is slightly different from
-	 * other handlers. Default handlers receive an object containing the
-	 * result from <code>Command.parse</code>.
+	 * **NOTE** the default handler function signature is slightly different
+	 * from other handlers (see {@link DefaultHandler}).
 	 *
-	 * Returns this so we can chain calls.
+	 * @category builder
+	 * @param {?DefaultHandler} func The handler function. If omitted, uses
+	 *     {@link CommandRegistry.defaultDefaultHandler}.
+	 * @throws {SetupError} for non-Function values.
+	 * @return {CommandRegistry} instance so we can chain calls.
 	 */
 	defaultHandler(func) {
-		func = func || defaultDefaultHandler;
-
-		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new SetupError(`func was ${type(func)}, ` +
-				'expected [object Function] or [object AsyncFunction]'
-			);
-		}
-
-		this._default_handler = func;
+		func = func || CommandRegistry.defaultDefaultHandler;
+		this.default_handler = func;
 		return this;
 	}
 
 	/**
-	 * Executes the command that corresponds to the given string. If the
-	 * referenced command doesn't exist, we fall back on the default command
-	 * handler, if there is one. If the command name is 'help', we use the
-	 * special help command handler.
-	 * In all cases, arbitrary additional values can be forwarded to the
-	 * handlers.
+	 * Executes a string (or array) as a command. Additional arbitrary arguments
+	 * can be forwarded to the command handler, and the value returned from the
+	 * command handler will bubble up and return from this function. If this
+	 * `CommandRegistry` does not have a command matching the given string, this
+	 * is either a no-op, or the default command handler is called (if set). If
+	 * the given command's name is `help`, this call is equivalent to calling
+	 * {@link CommandRegistry.help}.
+	 *
+	 * @category execution
+	 * @see {@link Command.execute}
+	 * @param {external:String|external:String[]} parts A string containing a
+	 *     command, or a pre-split {@link external:Array} of command parts.
+	 * @param {?any[]} forward Arbitrary additional values passed to handler.
+	 * @throws {any} Anything thrown in handler.
+	 * @return {?any} Return value forwarded back to caller.
+	 * @return {Promise<?any>} In async mode.
+	 * @example
+	 * // Call a command that adds two numbers
+	 * let x = registry.execute('add 12 14'); // x is 26
+	 * let x = registry.execute(['add', '10', '20']); // x is 30
+	 *
+	 * // Call a command from a Discord.js message.
+	 * // Remember to sanitize your inputs! https://xkcd.com/327/
+	 * registry.execute(msg.content, msg);
 	 */
 	execute(parts, ...forward) {
 		const executeInner = () => {
@@ -743,41 +933,60 @@ class CommandRegistry {
 				}
 
 				return this.commands.get(cmd_name).execute(parts, ...mod_forward);
-			} else if (this._default_handler) {
-				return this._default_handler([cmd_name, ...parts], ...forward);
+			} else if (this.default_handler) {
+				return this.default_handler([cmd_name, ...parts], ...forward);
 			}
 		};
 
-		return this._async ?
+		return this.is_async ?
 			new Promise(resolve => resolve(executeInner())) :
 			executeInner();
 	}
 
 	/**
-	 * Executes the help handler. In order for this function to do anything,
-	 * <code>helpHandler</code> needs to have been called, otherwise this
-	 * function is a no-op.
-	 * Returns the help handler's return value. Additional arbitrary arguments
-	 * will be forwarded to the help handler.
+	 * Executes this `CommandRegistry`'s help command. In order for this
+	 * function to do anything, {@link CommandRegistry.helpHandler} needs to
+	 * be called first to set up a help command. Like
+	 * {@link CommandRegistry.execute}, this function can forward additional
+	 * arbitrary arguments to the help handler function, and the value returned
+	 * from the help handler will bubble up to this function.
+	 *
+	 * @category execution
+	 * @param {?external:String} cmd_name The name of a command to request help
+	 *     for. In order to omit this value while providing forwarded arguments,
+	 *     pass in a falsy value, like `null`.
+	 * @param {?any[]} forward Arbitrary additional values passed to handler.
+	 * @throws {any} Anything thrown in handler.
+	 * @return {?any} Return value forwarded back to caller.
+	 * @return {Promise<?any>} In async mode.
+	 * @example
+	 * registry.help();
+	 * registry.help('say');
+	 * registry.help('say', msg);
+	 * registry.help(null, msg);
 	 */
 	help(cmd_name, ...forward) {
+		// TODO Maybe registries should come with the help command set up already?
 		cmd_name = cmd_name || '';
 		return this.execute(`help ${cmd_name}`, ...forward);
 	}
 
 	/**
-	 * Sets up a help command using the given handler function (or the default
-	 * handler, if none is specified. See <code>defaultHelpHandler</code>).
+	 * Sets up a help command using the given {@link HelpHandler} function.
+	 * If this is not set, help commands are treated like unknown commands.
 	 *
-	 * NOTE the help handler function signature is slightly different from other
-	 * handlers. Help handlers get the command Map object as a second
-	 * parameter.
+	 * **NOTE** the help handler function signature is slightly different from
+	 * other handlers (see {@link HelpHandler}).
 	 *
-	 * Returns this so we can chain calls.
+	 * @category builder
+	 * @param {?HelpHandler} func The handler function. If omitted, uses
+	 *     {@link CommandRegistry.defaultHelpHandler}.
+	 * @throws {SetupError} for non-Function values.
+	 * @return {CommandRegistry} instance so we can chain calls.
 	 */
 	helpHandler(func) {
 		// Command.handler checks if this is a valid function
-		func = func || defaultHelpHandler;
+		func = func || CommandRegistry.defaultHelpHandler;
 
 		if (!this.commands.has('help')) {
 			this.add(new Command('help')
@@ -789,32 +998,6 @@ class CommandRegistry {
 
 		this.commands.get('help').handler(func);
 		return this;
-	}
-}
-
-/**
- * The default handler for unrecognized commands. Simply throws an error.
- */
-function defaultDefaultHandler(args) {
-	const cmd_name = args.shift();
-	throw new Error(`Unrecognized command '${cmd_name}'`);
-}
-
-/**
- * The default handler for the help command. Returns the usage for the given
- * commnd name. If no command name is given, returns the usage for all known
- * commands, separated by newlines.
- */
-function defaultHelpHandler(args, commands) {
-	if (args.command) {
-		const cmd = commands.get(args.command);
-		if (cmd) {
-			return cmd.usage();
-		} else {
-			return `Unknown command '${args.command}'`;
-		}
-	} else {
-		return Array.from(commands.values()).map(cmd => cmd.usage()).join('\n');
 	}
 }
 
