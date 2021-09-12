@@ -464,11 +464,11 @@ describe('Positional command parser', function() {
 				const cmd = new Command('test').asynchronous(true);
 				const arg = new Argument('test');
 
-				expect(arg._async).to.be.false;
+				expect(arg.is_async).to.be.false;
 
 				cmd.addArgSet([arg]);
 
-				expect(arg._async).to.be.true;
+				expect(arg.is_async).to.be.true;
 			});
 
 			it('Async setting applied recursively to all argument sets', function() {
@@ -478,7 +478,7 @@ describe('Positional command parser', function() {
 
 				const asyncArgs = () => cmd.argsets
 					.reduce((acc, set) => acc.concat(set), [])
-					.filter(arg => arg._async);
+					.filter(arg => arg.is_async);
 
 				expect(asyncArgs()).to.be.empty;
 
