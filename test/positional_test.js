@@ -416,14 +416,14 @@ describe('Positional command parser', function() {
 			it('No arguments or description', function() {
 				const cmd = new Command('test');
 				expect(cmd.usage()).to.equal('test');
-				expect(cmd.getDescription()).to.be.null;
+				expect(cmd.desc).to.be.null;
 			});
 
 			it('Description only', function() {
 				const cmd = new Command('test')
 					.description('Some cool info');
 				expect(cmd.usage()).to.equal('test');
-				expect(cmd.getDescription()).to.equal('Some cool info');
+				expect(cmd.desc).to.equal('Some cool info');
 			});
 
 			it('Single argument set', function() {
@@ -431,7 +431,7 @@ describe('Positional command parser', function() {
 					.description('Stuff here')
 					.addArgSet([new Argument('arg1')]);
 				expect(cmd.usage()).to.equal('test <arg1>');
-				expect(cmd.getDescription()).to.equal('Stuff here');
+				expect(cmd.desc).to.equal('Stuff here');
 			});
 
 			it('Multiple argument sets', function() {
@@ -440,7 +440,7 @@ describe('Positional command parser', function() {
 					.addArgSet([new Argument('one')])
 					.addArgSet([new Argument('arg1'), new Argument('arg2')]);
 				expect(cmd.usage()).to.equal('test <one>\n' + 'test <arg1> <arg2>');
-				expect(cmd.getDescription()).to.equal('I am a cool description');
+				expect(cmd.desc).to.equal('I am a cool description');
 			});
 
 			it('Argument set with varargs', function() {
@@ -453,7 +453,7 @@ describe('Positional command parser', function() {
 				expect(cmd.usage()).to.equal(
 					'test <first> <rest_1> [rest_2] ... [rest_n]'
 				);
-				expect(cmd.getDescription()).to.equal('Hello');
+				expect(cmd.desc).to.equal('Hello');
 			});
 		});
 
@@ -476,7 +476,7 @@ describe('Positional command parser', function() {
 					.addArgSet([new Argument('arga1')])
 					.addArgSet([new Argument('argb1'), new Argument('argb2')]);
 
-				const asyncArgs = () => cmd._argsets
+				const asyncArgs = () => cmd.argsets
 					.reduce((acc, set) => acc.concat(set), [])
 					.filter(arg => arg._async);
 
@@ -1504,11 +1504,11 @@ describe('Positional command parser', function() {
 				const cmd = new Command('test');
 				const cmdreg = new CommandRegistry().asynchronous(true);
 
-				expect(cmd._async).to.be.false;
+				expect(cmd.is_async).to.be.false;
 
 				cmdreg.add(cmd);
 
-				expect(cmd._async).to.be.true;
+				expect(cmd.is_async).to.be.true;
 			});
 
 			it('Async changes applied recursively to commands', function() {
@@ -1516,7 +1516,7 @@ describe('Positional command parser', function() {
 					.add(new Command('test1'))
 					.add(new Command('test2'));
 				const asyncCmds = () =>
-					Array.from(cmdreg.commands.values()).filter(cmd => cmd._async);
+					Array.from(cmdreg.commands.values()).filter(cmd => cmd.is_async);
 
 				expect(asyncCmds()).to.be.empty;
 
