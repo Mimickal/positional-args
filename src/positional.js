@@ -62,7 +62,7 @@
  *
  * @callback Handler
  * @param {Args} args The {@link external:Object} of parsed arguments.
- * @param {?any[]} forward Arbitrary additional values.
+ * @param {?any[]} ...forward Arbitrary additional values.
  * @throws {any} Anything the user code wants to throw. This value will be
  *     captured and re-thrown as a {@link CommandError}.
  * @return {?any} Return value forwarded back to caller.
@@ -79,13 +79,13 @@
  * unrecognized command.
  *
  * **NOTE** the arguments passed to a `DefaultHandler` function are slightly
- * different than a normal `Handler`. It gets the string array of command parts
- * instead of a parsed {@link external:Object} of arguments.
+ * different than a normal {@link Handler}. It gets the string array of command
+ * parts instead of a parsed {@link external:Object} of arguments.
  *
  * @callback DefaultHandler
  * @param {external:String[]} cmd_parts Array of command parts from
  *     {@link Command.split}.
- * @param {?any[]} forward Arbitrary additional values passed into
+ * @param {?any[]} ...forward Arbitrary additional values passed into
  *     {@link CommandRegistry.execute}.
  * @throws {any} Anything the user code wants to throw. This value will be
  *     captured and re-thrown as a {@link CommandError}.
@@ -102,11 +102,12 @@
  * during execution.
  *
  * **NOTE** the arguments passed to an `ErrorHandler` function are slightly
- * different than a normal `Handler`. It gets the value thrown during execution.
+ * different than a normal {@link Handler}. It gets the value thrown during
+ * execution.
  *
  * @callback ErrorHandler
  * @param {any} value Value thrown during command execution.
- * @param {?any[]} forward Arbitrary additional values passed into
+ * @param {?any[]} ...forward Arbitrary additional values passed into
  *     {@link Command.execute}.
  * @throws {any} Anything the user code wants to throw. This value will be
  *     captured and re-thrown as a {@link CommandError}.
@@ -123,14 +124,14 @@
  * command.
  *
  * **NOTE** the arguments passed to a `HelpHandler` function are slightly
- * different than a normal `Handler`. It gets the `CommandRegistry`'s command
- * map as the second parameter.
+ * different than a normal {@link Handler}. It gets the command map of a
+ * {@link CommandRegistry} as the second parameter.
  *
  * @callback HelpHandler
  * @param {Args} args Argument {@link external:Object} containing the following:
  *     - command - The command name.
  * @param {Map<Command>} commands The `CommandRegistry`'s Map of commands.
- * @param {?any[]} forward Arbitrary additional values passed into
+ * @param {?any[]} ...forward Arbitrary additional values passed into
  *     {@link CommandRegistry.execute}.
  * @throws {any} Anything the user code wants to throw. This value will be
  *     captured and re-thrown as a {@link CommandError}.
@@ -168,6 +169,22 @@
  * - An `Argument` can be optional, preventing {@link CommandError}s from being
  *   thrown for missing values.
  * - Variable arguments (varargs) can be enabled to take in multiple values.
+ *
+ * @example
+ * function coerceToNumber(val) {
+ *     if (!Number.isInteger(val)) throw new Error('not a number!');
+ *     return Number.parseInt(val);
+ * }
+ * const arg = new Argument('thing')
+ *     .optional(true)
+ *     .varargs(true)
+ *     .preprocessor(coerceToNumber);
+ *
+ * const vals1 = arg.parse('123');           // vals1 = [123]
+ * const vals2 = arg.parse(['1', '9', '5']); // vals2 = [1, 9, 5]
+ * const vals3 = arg.parse();                // vals3 = []
+ * const vals4 = arg.parse(['1', 'hello']);  // CommandError thrown, not a number!
+ * const use = arg.usage(); // use = "[thing_1] [thing_2] ... [thing_n]"
  */
 class Argument {
 
@@ -179,10 +196,10 @@ class Argument {
 
 	/**
 	 * Directly get and set async mode for this `Argument`. Setting this has the
-	 * same effect as calling {@link Argument.asynchronous}.
+	 * same effect as calling {@link Argument#asynchronous}.
 	 *
 	 * @category accessor
-	 * @see {@link Argument.asynchronous}
+	 * @see {@link Argument#asynchronous}
 	 * @default false
 	 */
 	set is_async(enabled) {
@@ -200,10 +217,10 @@ class Argument {
 
 	/**
 	 * Directly get and set whether or not this `Argument` is optional. Setting
-	 * this has the same effect as calling {@link Argument.optional}.
+	 * this has the same effect as calling {@link Argument#optional}.
 	 *
 	 * @category accessor
-	 * @see {@link Argument.optional}
+	 * @see {@link Argument#optional}
 	 * @default false
 	 */
 	set is_optional(enabled) {
@@ -221,10 +238,10 @@ class Argument {
 
 	/**
 	 * Directly get and set whether or not this `Argument` is a varargs argument.
-	 * Setting this has the same effect as calling {@link Argument.varargs}.
+	 * Setting this has the same effect as calling {@link Argument#varargs}.
 	 *
 	 * @category accessor
-	 * @see {@link Argument.varargs}
+	 * @see {@link Argument#varargs}
 	 * @default false
 	 */
 	set is_varargs(enabled) {
@@ -242,9 +259,10 @@ class Argument {
 
 	/**
 	 * Directly get and set the name for this `Argument`. Setting this has the
-	 * same effect as calling `new Argument(...)`.
+	 * same effect as calling {@link #new_Argument_new|new Argument()}.
 	 *
 	 * @category accessor
+	 * @see {@link #new_Argument_new|new Argument()}
 	 */
 	set name(name) {
 		if (!isString(name)) {
@@ -263,10 +281,10 @@ class Argument {
 	/**
 	 * Directly get and set the {@link Preprocessor} function for this
 	 * `Argument`. Setting this has the same effect as calling
-	 * {@link Argument.preprocess}.
+	 * {@link Argument#preprocess}.
 	 *
 	 * @category accessor
-	 * @see {@link Argument.preprocess}
+	 * @see {@link Argument#preprocess}
 	 * @default null
 	 */
 	set preprocessor(func) {
@@ -284,7 +302,7 @@ class Argument {
 
 	/**
 	 * Creates a new `Argument` with the given name. This name is used in the
-	 * usage text (see {@link Argument.usage}).
+	 * usage text (see {@link Argument#usage}).
 	 *
 	 * @param {external:String} name The name for this `Argument`.
 	 * @throws {SetupError} for non-String or empty String names.
@@ -294,18 +312,18 @@ class Argument {
 	}
 
 	/**
-	 * Enables or disables async mode. In async mode, {@link Argument.parse}
+	 * Enables or disables async mode. In async mode, {@link Argument#parse}
 	 * returns a {@link external:Promise} that fulfills based on parse
 	 * execution, instead of returning or throwing. This setting only applies
 	 * to this `Argument`.
 	 *
-	 * An async `Argument` *may* be added to a non-async {@link Command}, but
-	 * {@link external:Promise}s will not be automatically resolved so care must
-	 * be taken in handling them in other user-provided code.
+	 * An async `Argument` will have its async setting disabled if it is added
+	 * to a non-async {@link Command}. This is intentional to discourage mixing
+	 * sync and async elements.
 	 *
 	 * @category builder
 	 * @param {Boolean} enabled `true` to enable async, `false` to disable.
-	 * @throws {SetupError} for non-`Boolean` values.
+	 * @throws {SetupError} for non-Boolean values.
 	 * @return {Argument} instance so we can chain calls.
 	 */
 	asynchronous(enabled) {
@@ -315,7 +333,7 @@ class Argument {
 
 	/**
 	 * Sets this `Argument` as optional. When an `Argument` is optional,
-	 * {@link Argument.parse} will not throw an error when a value is not
+	 * {@link Argument#parse} will not throw an error when a value is not
 	 * provided. **NOTE** Only the last argument in an argument list may be
 	 * optional.
 	 *
@@ -345,7 +363,7 @@ class Argument {
 	 * non-Array value.
 	 *
 	 * @category execution
-	 * @param {external:String|external:String[]} args Argument strings to parse.
+	 * @param {?external:String|?external:String[]} args Argument strings to parse.
 	 * @throws {CommandError} for non-String and non-Array-of-String data.
 	 * @throws {CommandError} for incorrect number of arguments.
 	 * @throws {CommandError} wrapping anything thrown from the preprocessor.
@@ -356,6 +374,7 @@ class Argument {
 	 * @return {Promise<any>|Promise<any[]>} in async mode.
 	 */
 	parse(args) {
+		// args can be null if arg is optional, see below.
 		if (args != null && !isString(args) && !Array.isArray(args)) {
 			throw new CommandError( // Because this is during command execution
 				`args was ${type(args)}, expected [object String] or 'Array<string>'`
@@ -450,7 +469,7 @@ class Argument {
 
 	/**
 	 * Sets up a preprocessor function that will be applied to any value that
-	 * passes through {@link Argument.parse} for this `Argument`. When called in
+	 * passes through {@link Argument#parse} for this `Argument`. When called in
 	 * the context of a {@link Command}, the return value of this preprocessor
 	 * will be added to the parsed {@link Args} Object. If the preprocessor does
 	 * not return anything (return value is `undefined`), the value will be
@@ -574,15 +593,15 @@ class Command {
 	 * @category accessor
 	 */
 	get argsets() {
-		return this.#argsets.map(set => set.slice()); // Return a deep copy
+		return this.#argsets.map(set => set.slice()); // Return a deep-ish copy
 	}
 
 	/**
 	 * Directly get and set the description for this `Command`. Setting this has
-	 * the same effect as calling {@link Command.description}.
+	 * the same effect as calling {@link Command#description}.
 	 *
 	 * @category accessor
-	 * @see {@link Command.description}
+	 * @see {@link Command#description}
 	 */
 	set desc(string) {
 		if (!isString(string)) {
@@ -597,10 +616,10 @@ class Command {
 
 	/**
 	 * Directly get and set asynchronous mode for this `Command`. Setting this
-	 * has the same effect as calling {@link Command.asynchronous}.
+	 * has the same effect as calling {@link Command#asynchronous}.
 	 *
 	 * @category accessor
-	 * @see {@link Command.asynchronous}
+	 * @see {@link Command#asynchronous}
 	 * @default false
 	 */
 	set is_async(enabled) {
@@ -619,9 +638,10 @@ class Command {
 
 	/**
 	 * Directly get and set the name for this `Command`. Subject to the same
-	 * validation as `new Command(...)`.
+	 * validation as {@link #new_Command_new|new Command()}.
 	 *
 	 * @category accessor
+	 * @see {@link #new_Command_new|new Command()}
 	 */
 	set name(string) {
 		if (!isString(string)) {
@@ -640,7 +660,7 @@ class Command {
 	/**
 	 * Creates a new `Command` with the given name.
 	 *
-	 * @throws {SetupError} Missing, empty, or non-string names.
+	 * @throws {SetupError} Missing, empty, or non-String names.
 	 */
 	constructor(name) {
 		this.name = name;
@@ -708,8 +728,8 @@ class Command {
 	}
 
 	/**
-	 * Enables or disables async mode. In async mode, {@link Command.execute}
-	 * and {@link Command.parse} will both return a {@link external:Promise}
+	 * Enables or disables async mode. In async mode, {@link Command#execute}
+	 * and {@link Command#parse} will both return a {@link external:Promise}
 	 * that fulfills based on the parse and/or command execution, instead of
 	 * returning or throwing. Promises returned from {@link Argument}s will also
 	 * be automatically resolved before adding them to the {@link Args}.
@@ -718,7 +738,7 @@ class Command {
 	 *
 	 * @category builder
 	 * @param {Boolean} enabled `true` to enable async, `false` to disable.
-	 * @throws {SetupError} for non-`Boolean` values.
+	 * @throws {SetupError} for non-Boolean values.
 	 * @return {Command} instance so we can chain calls.
 	 */
 	asynchronous(enabled) {
@@ -738,7 +758,7 @@ class Command {
 	 *
 	 * @category builder
 	 * @param {external:String} desc The description text.
-	 * @throws {SetupError} for non-`String` values.
+	 * @throws {SetupError} for non-String values.
 	 * @return {Command} instance so we can chain calls.
 	 */
 	description(desc) {
@@ -751,7 +771,7 @@ class Command {
 	 * When this is set, values will not be thrown (or passed to `.catch()` in
 	 * async mode). Instead, they will be passed to this handler function, along
 	 * with all of the arbitrary arguments originally forwarded from
-	 * {@link Command.execute}. Additionally, values returned from this handler
+	 * {@link Command#execute}. Additionally, values returned from this handler
 	 * will be returned to the caller (via `.then()` in async mode). Values
 	 * thrown within this handler will be re-thrown to the caller as a
 	 * {@link CommandError} (bubbled up via `.catch()` in async mode).
@@ -780,7 +800,7 @@ class Command {
 	 * the handler will be rethrown from this function (or bubble up via
 	 * `.catch()` in async mode).
 	 *
-	 * If an {@link ErrorHandler} has been set via {@link Command.error}, values
+	 * If an {@link ErrorHandler} has been set via {@link Command#error}, values
 	 * thrown from the handler function will be passed to that handler instead
 	 * of being rethrown from this function. The error handler is subject to all
 	 * of the same conditions as the command handler, so values returned/thrown
@@ -793,8 +813,8 @@ class Command {
 	 * @category execution
 	 * @param {external:String|external:String[]} parts Arguments for this
 	 *     command. Should not include the command's name.
-	 * @param {?any[]} forward Arbitrary additional values passed to handler.
-	 * @throws {CommandError} for all reasons as {@link Command.parse}.
+	 * @param {?any[]} ...forward Arbitrary additional values passed to handler.
+	 * @throws {CommandError} for all reasons as {@link Command#parse}.
 	 * @throws {CommandError} for anything thrown within the handler.
 	 * @return {?any} Whatever the handler function returns.
 	 * @return {Promise<?any>} in async mode.
@@ -1044,7 +1064,7 @@ class CommandError extends Error {
 	/**
 	 * Gets this `CommandError`'s `message` combined with `nested.message`, if
 	 * `nested` is an {@link external:Error}. Otherwise, this value is identical
-	 * to {@link CommandError.message}.
+	 * to {@link CommandError#message}.
 	 */
 	get full_message() {
 		let msg = this.message;
@@ -1085,7 +1105,7 @@ class CommandRegistry {
 	 * @see {@link DefaultHandler}
 	 * @param {external:String[]} cmd_parts Array of command parts from
 	 *     {@link Command.split}.
-	 * @throws {Error} Always
+	 * @throws {external:Error} Always
 	 */
 	static defaultDefaultHandler(cmd_parts) {
 		const cmd_name = cmd_parts.shift();
@@ -1094,14 +1114,15 @@ class CommandRegistry {
 
 	/**
 	 * An optional default handler for the help command. Returns the usage for
-	 * the given command, according to its {@link Command.usage} function. If no
+	 * the given command, according to its {@link Command#usage} function. If no
 	 * command name is given, returns the usage for all known commands,
 	 * separated by newlines.
 	 *
 	 * @see {@link HelpHandler}
 	 * @param {Args} args Argument {@link external:Object} containing at least
 	 *     `command`.
-	 * @param {Map<Command>} commands The `Map` of `Commands` in the registry.
+	 * @param {Map<Command>} commands The {@link external:Map} of `Commands` in
+	 *     the registry.
 	 * @return {external:String} Description of the given command, or all known
 	 *     commands.
 	 */
@@ -1132,10 +1153,10 @@ class CommandRegistry {
 	/**
 	 * Directly get and set asynchronous mode for this `CommandRegistry`.
 	 * Setting this has the same effect as calling
-	 * {@link CommandRegistry.asynchronous}.
+	 * {@link CommandRegistry#asynchronous}.
 	 *
 	 * @category accessor
-	 * @see {@link CommandRegistry.asynchronous}
+	 * @see {@link CommandRegistry#asynchronous}
 	 * @default false
 	 */
 	set is_async(enabled) {
@@ -1155,10 +1176,10 @@ class CommandRegistry {
 	/**
 	 * Directly get and set the default handler for unrecognized commands for
 	 * this `CommandRegistry`. Setting this has the same effect as calling
-	 * {@link CommandRegistry.defaultHandler}.
+	 * {@link CommandRegistry#defaultHandler}.
 	 *
 	 * @category accessor
-	 * @see {@link CommandRegistry.defaultHandler}
+	 * @see {@link CommandRegistry#defaultHandler}
 	 */
 	set default_handler(func) {
 		if (!isFunction(func) && !isAsyncFunction(func)) {
@@ -1185,7 +1206,7 @@ class CommandRegistry {
 	 *
 	 * @category builder
 	 * @param {Command} command The command to add.
-	 * @throws {SetupError} For non-`Command` values.
+	 * @throws {SetupError} For non-Command values.
 	 * @throws {SetupError} If the `CommandRegistry` already has a `Command`
 	 *     with the given name.
 	 * @return {CommandRegistry} instance so we can chain calls.
@@ -1207,14 +1228,14 @@ class CommandRegistry {
 
 	/**
 	 * Enables or disables async mode for this `CommandRegistry`. In async mode,
-	 * {@link CommandRegistry.help} and {@link CommandRegistry.execute} will
+	 * {@link CommandRegistry#help} and {@link CommandRegistry#execute} will
 	 * both return a {@link external:Promise} that fulfills based on the command
 	 * execution. This setting is applied recursively to all {@link Command}s
 	 * and {@link Argument}s in this `CommandRegistry`.
 	 *
 	 * @category builder
 	 * @param {Boolean} enabled `true` to enable async, `false` to disable.
-	 * @throws {SetupError} for non-`Boolean` values.
+	 * @throws {SetupError} for non-Boolean values.
 	 * @return {CommandRegistry} instance so we can chain calls.
 	 */
 	asynchronous(enabled) {
@@ -1253,13 +1274,13 @@ class CommandRegistry {
 	 * `CommandRegistry` does not have a command matching the given string, this
 	 * is either a no-op, or the default command handler is called (if set). If
 	 * the given command's name is `help`, this call is equivalent to calling
-	 * {@link CommandRegistry.help}.
+	 * {@link CommandRegistry#help}.
 	 *
 	 * @category execution
 	 * @see {@link Command.execute}
 	 * @param {external:String|external:String[]} parts A string containing a
 	 *     command, or a pre-split {@link external:Array} of command parts.
-	 * @param {?any[]} forward Arbitrary additional values passed to handler.
+	 * @param {?any[]} ...forward Arbitrary additional values passed to handler.
 	 * @throws {CommandError} Wraps anything thrown in handler.
 	 * @return {?any} Return value forwarded back to caller.
 	 * @return {Promise<?any>} In async mode.
@@ -1298,9 +1319,9 @@ class CommandRegistry {
 
 	/**
 	 * Executes the help command for this `CommandRegistry`. In order for this
-	 * function to do anything, {@link CommandRegistry.helpHandler} needs to
+	 * function to do anything, {@link CommandRegistry#helpHandler} needs to
 	 * be called first to set up a help command. Like
-	 * {@link CommandRegistry.execute}, this function can forward additional
+	 * {@link CommandRegistry#execute}, this function can forward additional
 	 * arbitrary arguments to the help handler function, and the value returned
 	 * from the help handler will bubble up to this function.
 	 *
@@ -1308,7 +1329,7 @@ class CommandRegistry {
 	 * @param {?external:String} cmd_name The name of a command to request help
 	 *     for. In order to omit this value while providing forwarded arguments,
 	 *     pass in a falsy value, like `null`.
-	 * @param {?any[]} forward Arbitrary additional values passed to handler.
+	 * @param {?any[]} ...forward Arbitrary additional values passed to handler.
 	 * @throws {CommandError} Wraps anything thrown in handler.
 	 * @return {?any} Return value forwarded back to caller.
 	 * @return {Promise<?any>} In async mode.
