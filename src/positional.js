@@ -375,10 +375,22 @@ class Argument {
 	 */
 	parse(args) {
 		// args can be null if arg is optional, see below.
-		if (args != null && !isString(args) && !Array.isArray(args)) {
-			throw new CommandError( // Because this is during command execution
-				`args was ${type(args)}, expected [object String] or 'Array<string>'`
-			);
+		// Use CommandErrors because parse occurs during command execution.
+		if (args != null) {
+			if (!isString(args) && !Array.isArray(args)) {
+				throw new CommandError(
+					`args was ${type(args)}, expected [object String] or 'Array<string>'`
+				);
+			}
+			if (Array.isArray(args)) {
+				const nonStringElem = args.find(arg => !isString(arg));
+				if (nonStringElem !== undefined) {
+					throw new CommandError(
+						`args Array contained a ${type(nonStringElem)}, ` +
+						'expected all elements to be [object String]'
+					);
+				}
+			}
 		}
 
 		if (this.is_async) {

@@ -51,7 +51,7 @@ describe('Positional command parser', function() {
 				);
 			});
 
-			it('Non-string and non-Array args', function() {
+			it('Non-string and non-Array-of-string args', function() {
 				const arg = new Argument('test');
 				expect(() => arg.parse({})).to.throw(
 					CommandError,
@@ -61,6 +61,11 @@ describe('Positional command parser', function() {
 					CommandError,
 					"args was [object Boolean], expected [object String] or 'Array<string>'"
 				);
+
+				expect(() => arg.parse(["good", false])).to.throw(
+					CommandError,
+					"args Array contained a [object Boolean], expected all elements to be [object String]"
+				)
 			});
 
 			it('Non-boolean asynchronous flag', function() {
