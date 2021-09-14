@@ -1,6 +1,6 @@
 {
   "name": "positional-args",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Positional argument parser",
   "main": "src/positional.js",
   "homepage": "https://www.npmjs.com/package/positional-args",
