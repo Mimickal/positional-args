@@ -23,5 +23,5 @@ shell('npm run regen-docs');
 console.log('Wrote out new API.md');
 
 shell('git add package.json package-lock.json API.md');
-shell(`git commit -m "Version bump to ${newversion}"`);
+shell(`git commit -m "Version bump to ${newversion}, regen docs"`);
 
