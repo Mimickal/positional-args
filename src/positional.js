@@ -205,7 +205,7 @@ class Argument {
 	set is_async(enabled) {
 		if (!isBoolean(enabled)) {
 			throw new SetupError(
-				`enabled was ${type(enabled)}, expected [object Boolean]`
+				`is_async was ${type(enabled)}, expected [object Boolean]`
 			);
 		}
 
@@ -226,7 +226,7 @@ class Argument {
 	set is_optional(enabled) {
 		if (!isBoolean(enabled)) {
 			throw new SetupError(
-				`enabled was ${type(enabled)}, expected [object Boolean]`
+				`is_optional was ${type(enabled)}, expected [object Boolean]`
 			);
 		}
 
@@ -247,7 +247,7 @@ class Argument {
 	set is_varargs(enabled) {
 		if (!isBoolean(enabled)) {
 			throw new SetupError(
-				`enabled was ${type(enabled)}, expected [object Boolean]`
+				`is_varargs was ${type(enabled)}, expected [object Boolean]`
 			);
 		}
 
@@ -289,7 +289,7 @@ class Argument {
 	 */
 	set preprocessor(func) {
 		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new SetupError(`func was ${type(func)}, ` +
+			throw new SetupError(`preprocessor was ${type(func)}, ` +
 				'expected [object Function] or [object AsyncFunction]'
 			);
 		}
@@ -605,7 +605,7 @@ class Command {
 	 */
 	set desc(string) {
 		if (!isString(string)) {
-			throw new SetupError(`name was ${type(string)}, expected [object String]`);
+			throw new SetupError(`desc was ${type(string)}, expected [object String]`);
 		}
 
 		this.#desc = string;
@@ -625,7 +625,7 @@ class Command {
 	set is_async(enabled) {
 		if (!isBoolean(enabled)) {
 			throw new SetupError(
-				`enabled was ${type(enabled)}, expected [object Boolean]`
+				`is_async was ${type(enabled)}, expected [object Boolean]`
 			);
 		}
 
@@ -783,7 +783,7 @@ class Command {
 	 */
 	error(func) {
 		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new SetupError(`func was ${type(func)}, ` +
+			throw new SetupError(`error handler was ${type(func)}, ` +
 				'expected [object Function] or [object AsyncFunction]'
 			);
 		}
@@ -889,7 +889,7 @@ class Command {
 	 */
 	handler(func) {
 		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new SetupError(`func was ${type(func)}, ` +
+			throw new SetupError(`handler was ${type(func)}, ` +
 				'expected [object Function] or [object AsyncFunction]'
 			);
 		}
@@ -1162,7 +1162,7 @@ class CommandRegistry {
 	set is_async(enabled) {
 		if (!isBoolean(enabled)) {
 			throw new SetupError(
-				`enabled was ${type(enabled)}, expected [object Boolean]`
+				`is_async was ${type(enabled)}, expected [object Boolean]`
 			);
 		}
 
@@ -1183,7 +1183,7 @@ class CommandRegistry {
 	 */
 	set default_handler(func) {
 		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new SetupError(`func was ${type(func)}, ` +
+			throw new SetupError(`default handler was ${type(func)}, ` +
 				'expected [object Function] or [object AsyncFunction]'
 			);
 		}

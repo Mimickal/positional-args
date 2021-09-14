@@ -47,7 +47,7 @@ describe('Positional command parser', function() {
 			it('Non-function preprocessor', function () {
 				expect(() => new Argument('test').preprocess({})).to.throw(
 					SetupError,
-					'func was [object Object], expected [object Function]'
+					'preprocessor was [object Object], expected [object Function]'
 				);
 			});
 
@@ -66,21 +66,21 @@ describe('Positional command parser', function() {
 			it('Non-boolean asynchronous flag', function() {
 				expect(() => new Argument('test').asynchronous({})).to.throw(
 					SetupError,
-					'enabled was [object Object], expected [object Boolean]'
+					'is_async was [object Object], expected [object Boolean]'
 				);
 			});
 
 			it('Non-boolean optional flag', function() {
 				expect(() => new Argument('test').optional({})).to.throw(
 					SetupError,
-					'enabled was [object Object], expected [object Boolean]'
+					'is_optional was [object Object], expected [object Boolean]'
 				);
 			});
 
 			it('Non-boolean varargs flag', function() {
 				expect(() => new Argument('test').varargs({})).to.throw(
 					SetupError,
-					'enabled was [object Object], expected [object Boolean]'
+					'is_varargs was [object Object], expected [object Boolean]'
 				);
 			});
 		});
@@ -385,28 +385,28 @@ describe('Positional command parser', function() {
 			it('Non-boolean asynchronous flag', function() {
 				expect(() => new Command('test').asynchronous({})).to.throw(
 					SetupError,
-					'enabled was [object Object], expected [object Boolean]'
+					'is_async was [object Object], expected [object Boolean]'
 				);
 			});
 
 			it('Non-string description', function() {
 				expect(() => new Command('test').description({})).to.throw(
 					SetupError,
-					'name was [object Object], expected [object String]'
+					'desc was [object Object], expected [object String]'
 				);
 			});
 
 			it('Non-function handler', function() {
 				expect(() => new Command('test').handler({})).to.throw(
 					SetupError,
-					'func was [object Object], expected [object Function]'
+					'handler was [object Object], expected [object Function]'
 				);
 			});
 
 			it('Non-function error handler', function() {
 				expect(() => new Command('test').error({})).to.throw(
 					SetupError,
-					'func was [object Object], expected [object Function]'
+					'error handler was [object Object], expected [object Function]'
 				);
 			});
 		});
@@ -1124,7 +1124,7 @@ describe('Positional command parser', function() {
 				const cmdreg = new CommandRegistry();
 				expect(() => cmdreg.asynchronous({})).to.throw(
 					SetupError,
-					'enabled was [object Object], expected [object Boolean]'
+					'is_async was [object Object], expected [object Boolean]'
 				);
 			});
 
@@ -1132,7 +1132,7 @@ describe('Positional command parser', function() {
 				const cmdreg = new CommandRegistry();
 				expect(() => cmdreg.defaultHandler('not a function')).to.throw(
 					SetupError,
-					'func was [object String], expected [object Function]'
+					'default handler was [object String], expected [object Function]'
 				);
 			});
 
@@ -1140,7 +1140,7 @@ describe('Positional command parser', function() {
 				const cmdreg = new CommandRegistry();
 				expect(() => cmdreg.helpHandler({})).to.throw(
 					SetupError,
-					'func was [object Object], expected [object Function]'
+					'handler was [object Object], expected [object Function]'
 				);
 			});
 		});
