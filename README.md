@@ -41,6 +41,9 @@ npm install positional-args
 ## Usage and examples
 [See full API here!](API.md)
 
+[See GitHub releases page for API changes.](
+https://github.com/Mimickal/positional-args/releases)
+
 This example creates a `CommandRegistry` with multiple commands and handler for
 unrecognized commands.
 ```js
