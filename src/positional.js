@@ -16,15 +16,255 @@
 // recommend reading this excellent article on Promises:
 // https://pouchdb.com/2015/05/18/we-have-a-problem-with-promises.html
 
+
+// Define references for JSDoc
 /**
- * Represents a single positional argument for a command.
+ * @external Array
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array
+ */
+/**
+ * @external Error
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error
+ */
+/**
+ * @external Map
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+ */
+/**
+ * @external Object
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+ */
+/**
+ * @external Promise
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
+ */
+/**
+ * @external String
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String
+ */
+/**
+ * An {@link external:Object} of parsed arguments for a command. Matches the
+ * format from other argument parsing libraries, such as
+ * <a href="https://www.npmjs.com/package/yargs">Yargs</a>.
+ *
+ * @typedef Args
+ * @example
+ * {
+ *   _: ['my', 'cool', 'args'],
+ *   arg1: 'my',
+ *   arg2: 'cool',
+ *   arg3: 'args',
+ *   vararg1: ['thing1', 'thing2'],
+ * }
+ */
+/**
+ * A function a {@link Command} calls when it is executed.
+ *
+ * @callback Handler
+ * @param {Args} args The {@link external:Object} of parsed arguments.
+ * @param {?any[]} ...forward Arbitrary additional values.
+ * @throws {any} Anything the user code wants to throw. This value will be
+ *     captured and re-thrown as a {@link CommandError}.
+ * @return {?any} Return value forwarded back to caller.
+ * @return {Promise<?any>} In async mode.
+ * @example
+ * // Adds two numbers together and replies to a Discord.js message
+ * function myHandler(args, message) {
+ *     const val = args.val1 + args.val2;
+ *     return message.reply('Result is ' + val);
+ * }
+ */
+/**
+ * A function a {@link CommandRegistry} can optionally call when it gets an
+ * unrecognized command.
+ *
+ * **NOTE** the arguments passed to a `DefaultHandler` function are slightly
+ * different than a normal {@link Handler}. It gets the string array of command
+ * parts instead of a parsed {@link external:Object} of arguments.
+ *
+ * @callback DefaultHandler
+ * @param {external:String[]} cmd_parts Array of command parts from
+ *     {@link Command.split}.
+ * @param {?any[]} ...forward Arbitrary additional values passed into
+ *     {@link CommandRegistry.execute}.
+ * @throws {any} Anything the user code wants to throw. This value will be
+ *     captured and re-thrown as a {@link CommandError}.
+ * @return {?any} Return value forwarded back to caller.
+ * @return {Promise<?any>} In async mode.
+ * @example
+ * // Replying to a Discord.js message
+ * function myDefaultHandler(cmd_parts, message) {
+ *     return message.reply('Unrecognized command ' + cmd_parts.shift());
+ * }
+ */
+/**
+ * A function a {@link Command} can optionally use to handle values thrown
+ * during execution.
+ *
+ * **NOTE** the arguments passed to an `ErrorHandler` function are slightly
+ * different than a normal {@link Handler}. It gets the value thrown during
+ * execution.
+ *
+ * @callback ErrorHandler
+ * @param {any} value Value thrown during command execution.
+ * @param {?any[]} ...forward Arbitrary additional values passed into
+ *     {@link Command.execute}.
+ * @throws {any} Anything the user code wants to throw. This value will be
+ *     captured and re-thrown as a {@link CommandError}.
+ * @return {?any} Return value forwarded back to caller.
+ * @return {Promise<?any>} In async mode.
+ * @example
+ * // Replying to a Discord.js message with the error
+ * function myErrorHandler(err, message) {
+ *     return message.reply('Command failed: ' + err.message);
+ * }
+ */
+/**
+ * A function a {@link CommandRegistry} can optionally use for its help
+ * command.
+ *
+ * **NOTE** the arguments passed to a `HelpHandler` function are slightly
+ * different than a normal {@link Handler}. It gets the command map of a
+ * {@link CommandRegistry} as the second parameter.
+ *
+ * @callback HelpHandler
+ * @param {Args} args Argument {@link external:Object} containing the following:
+ *     - command - The command name.
+ * @param {Map<Command>} commands The `CommandRegistry`'s Map of commands.
+ * @param {?any[]} ...forward Arbitrary additional values passed into
+ *     {@link CommandRegistry.execute}.
+ * @throws {any} Anything the user code wants to throw. This value will be
+ *     captured and re-thrown as a {@link CommandError}.
+ * @return {?any} Return value forwarded back to caller.
+ * @return {Promise<?any>} In async mode.
+ * @example
+ * // Replying to a Discord.js message
+ * function myHelpHandler(args, commands, message) {
+ *     return message.reply(commands.get(args.command).usage());
+ * }
+ */
+/**
+ * A function a {@link Argument} can optionally use to validate and apply
+ * preprocessing to an argument.
+ *
+ * @callback Preprocessor
+ * @param {String} value The string representation of an argument.
+ * @throws {any} Anything the user code wants to throw. This value will be
+ *     captured and re-thrown as a {@link CommandError}.
+ * @return {any} The final value returned from {@link Argument.parse}.
+ * @example
+ * function coerceToNumber(value) {
+ *     if (!Number.isInteger(val)) throw new Error('not a number!');
+ *     return Number.parseInt(val);
+ * }
+ */
+
+/**
+ * A single positional argument. These are intended to be nested within
+ * {@link Command} objects, but can also be used standalone.
+ *
+ * By default, an `Argument` represents a single, required argument with no
+ * validation or preprocessing applied. All of these defaults can be modified.
+ * - {@link Preprocessor}s can validate and modify the argument.
+ * - An `Argument` can be optional, preventing {@link CommandError}s from being
+ *   thrown for missing values.
+ * - Variable arguments (varargs) can be enabled to take in multiple values.
+ *
+ * @example
+ * function coerceToNumber(val) {
+ *     if (!Number.isInteger(val)) throw new Error('not a number!');
+ *     return Number.parseInt(val);
+ * }
+ * const arg = new Argument('thing')
+ *     .optional(true)
+ *     .varargs(true)
+ *     .preprocessor(coerceToNumber);
+ *
+ * const vals1 = arg.parse('123');           // vals1 = [123]
+ * const vals2 = arg.parse(['1', '9', '5']); // vals2 = [1, 9, 5]
+ * const vals3 = arg.parse();                // vals3 = []
+ * const vals4 = arg.parse(['1', 'hello']);  // CommandError thrown, not a number!
+ * const use = arg.usage(); // use = "[thing_1] [thing_2] ... [thing_n]"
  */
 class Argument {
 
+	#is_async = false;
+	#is_optional = false;
+	#is_varargs = false;
+	#name;
+	#preprocessor = null;
+
 	/**
-	 * Constructs an argument with the given name.
+	 * Directly get and set async mode for this `Argument`. Setting this has the
+	 * same effect as calling {@link Argument#asynchronous}.
+	 *
+	 * @category accessor
+	 * @see {@link Argument#asynchronous}
+	 * @default false
 	 */
-	constructor(name) {
+	set is_async(enabled) {
+		if (!isBoolean(enabled)) {
+			throw new SetupError(
+				`is_async was ${type(enabled)}, expected [object Boolean]`
+			);
+		}
+
+		this.#is_async = enabled;
+	}
+	get is_async() {
+		return this.#is_async;
+	}
+
+	/**
+	 * Directly get and set whether or not this `Argument` is optional. Setting
+	 * this has the same effect as calling {@link Argument#optional}.
+	 *
+	 * @category accessor
+	 * @see {@link Argument#optional}
+	 * @default false
+	 */
+	set is_optional(enabled) {
+		if (!isBoolean(enabled)) {
+			throw new SetupError(
+				`is_optional was ${type(enabled)}, expected [object Boolean]`
+			);
+		}
+
+		this.#is_optional = enabled;
+	}
+	get is_optional() {
+		return this.#is_optional;
+	}
+
+	/**
+	 * Directly get and set whether or not this `Argument` is a varargs argument.
+	 * Setting this has the same effect as calling {@link Argument#varargs}.
+	 *
+	 * @category accessor
+	 * @see {@link Argument#varargs}
+	 * @default false
+	 */
+	set is_varargs(enabled) {
+		if (!isBoolean(enabled)) {
+			throw new SetupError(
+				`is_varargs was ${type(enabled)}, expected [object Boolean]`
+			);
+		}
+
+		this.#is_varargs = enabled;
+	}
+	get is_varargs() {
+		return this.#is_varargs;
+	}
+
+	/**
+	 * Directly get and set the name for this `Argument`. Setting this has the
+	 * same effect as calling {@link #new_Argument_new|new Argument()}.
+	 *
+	 * @category accessor
+	 * @see {@link #new_Argument_new|new Argument()}
+	 */
+	set name(name) {
 		if (!isString(name)) {
 			throw new SetupError(`name was ${type(name)}, expected [object String]`);
 		}
@@ -32,102 +272,160 @@ class Argument {
 			throw new SetupError('name was empty string');
 		}
 
-		this._async = false;
-		this._name = name;
-		this._optional = false;
-		this._preprocessor = null;
-		this._varargs = false;
+		this.#name = name;
+	}
+	get name() {
+		return this.#name;
 	}
 
 	/**
-	 * Enables/disables async mode. In async mode, Promises returned from
-	 * preprocessors will be resolved automatically. This means
-	 * <code>parse</code> will also return a Promise.
+	 * Directly get and set the {@link Preprocessor} function for this
+	 * `Argument`. Setting this has the same effect as calling
+	 * {@link Argument#preprocess}.
 	 *
-	 * Returns this so we can chain calls.
+	 * @category accessor
+	 * @see {@link Argument#preprocess}
+	 * @default null
+	 */
+	set preprocessor(func) {
+		if (!isFunction(func) && !isAsyncFunction(func)) {
+			throw new SetupError(`preprocessor was ${type(func)}, ` +
+				'expected [object Function] or [object AsyncFunction]'
+			);
+		}
+
+		this.#preprocessor = func;
+	}
+	get preprocessor() {
+		return this.#preprocessor;
+	}
+
+	/**
+	 * Creates a new `Argument` with the given name. This name is used in the
+	 * usage text (see {@link Argument#usage}).
+	 *
+	 * @param {external:String} name The name for this `Argument`.
+	 * @throws {SetupError} for non-String or empty String names.
+	 */
+	constructor(name) {
+		this.name = name;
+	}
+
+	/**
+	 * Enables or disables async mode. In async mode, {@link Argument#parse}
+	 * returns a {@link external:Promise} that fulfills based on parse
+	 * execution, instead of returning or throwing. This setting only applies
+	 * to this `Argument`.
+	 *
+	 * An async `Argument` will have its async setting disabled if it is added
+	 * to a non-async {@link Command}. This is intentional to discourage mixing
+	 * sync and async elements.
+	 *
+	 * @category builder
+	 * @param {Boolean} enabled `true` to enable async, `false` to disable.
+	 * @throws {SetupError} for non-Boolean values.
+	 * @return {Argument} instance so we can chain calls.
 	 */
 	asynchronous(enabled) {
-		if (!isBoolean(enabled)) {
-			throw new SetupError(
-				`enabled was ${type(enabled)}, expected [object Boolean]`
-			);
-		}
-
-		this._async = enabled;
+		this.is_async = enabled;
 		return this;
 	}
 
 	/**
-	 * Marks this argument as optional. Only the last argument in an argument
-	 * list may be optional.
+	 * Sets this `Argument` as optional. When an `Argument` is optional,
+	 * {@link Argument#parse} will not throw an error when a value is not
+	 * provided. **NOTE** Only the last argument in an argument list may be
+	 * optional.
 	 *
-	 * Returns this so we can chain calls.
+	 * @category builder
+	 * @param {Boolean} enabled `true` for optional, `false` for required.
+	 * @throws {SetupError} for non-Boolean values.
+	 * @return {Argument} instance so we can chain calls.
 	 */
 	optional(enabled) {
-		if (!isBoolean(enabled)) {
-			throw new SetupError(
-				`enabled was ${type(enabled)}, expected [object Boolean]`
-			);
-		}
-
-		this._optional = enabled;
+		this.is_optional = enabled;
 		return this;
 	}
 
 	/**
-	 * Parses the given arg(s) using this Argument's preprocessor function.
+	 * Parses the given argument(s) using the preprocessor function (if set).
+	 * If no preprocessor function has been set, this function will still
+	 * perform basic validation on the argument(s), but will return it(them)
+	 * as-is.
 	 *
-	 * If the preprocessor command throws an error, this function will re-throw
-	 * it with additional context.
+	 * In async mode, this function returns a {@link external:Promise} that
+	 * fulfills with the processed arguments. Any intermediate `Promise` is
+	 * internally resolved, so the final returned `Promise` will resolve to
+	 * a processed value. This is particularly useful for varargs.
 	 *
-	 * If no preprocessor is defined, the args are returned as given.
+	 * In varargs mode, the returned (or resolved) value will always be an
+	 * {@link external:Array}, even if the given argument was a single,
+	 * non-Array value.
 	 *
-	 * If a single (non-array) value is given for a varargs argument, an array
-	 * will still be returned.
-	 *
-	 * In async mode, this will always return a Promise that resolves to the
-	 * parsed values.
+	 * @category execution
+	 * @param {?external:String|?external:String[]} args Argument strings to parse.
+	 * @throws {CommandError} for non-String and non-Array-of-String data.
+	 * @throws {CommandError} for incorrect number of arguments.
+	 * @throws {CommandError} wrapping anything thrown from the preprocessor.
+	 *     Additional context is added where possible, indicating which argument
+	 *     caused the problem and why.
+	 * @return {any|any[]} The processed value (or array of values, in varargs
+	 *     mode).
+	 * @return {Promise<any>|Promise<any[]>} in async mode.
 	 */
 	parse(args) {
-		if (args != null && !isString(args) && !Array.isArray(args)) {
-			throw new CommandError( // Because this is during command execution
-				`args was ${type(args)}, expected [object String] or 'Array<string>'`
-			);
+		// args can be null if arg is optional, see below.
+		// Use CommandErrors because parse occurs during command execution.
+		if (args != null) {
+			if (!isString(args) && !Array.isArray(args)) {
+				throw new CommandError(
+					`args was ${type(args)}, expected [object String] or 'Array<string>'`
+				);
+			}
+			if (Array.isArray(args)) {
+				const nonStringElem = args.find(arg => !isString(arg));
+				if (nonStringElem !== undefined) {
+					throw new CommandError(
+						`args Array contained a ${type(nonStringElem)}, ` +
+						'expected all elements to be [object String]'
+					);
+				}
+			}
 		}
 
-		if (this._async) {
+		if (this.is_async) {
 			// Will auto-reject if this throws
-			return new Promise(resolve => resolve(this._parseStart(args)));
+			return new Promise(resolve => resolve(this.#parseStart(args)));
 		} else {
-			return this._parseStart(args);
+			return this.#parseStart(args);
 		}
 	}
 
-	/// Break this out so we can optionally async wrap
-	_parseStart(args) {
-		if (this._varargs) {
-			return this._parseVarargs(args);
+	// Break this out so we can optionally async wrap
+	#parseStart(args) {
+		if (this.is_varargs) {
+			return this.#parseVarargs(args);
 		} else {
-			return this._parseSingle(args);
+			return this.#parseSingle(args);
 		}
 	}
 
-	/// Branch for parsing a single argument
-	_parseSingle(arg) {
-		if (arg == null && !this._optional) {
+	// Branch for parsing a single argument
+	#parseSingle(arg) {
+		if (arg == null && !this.is_optional) {
 			throw new CommandError(
-				`Too few arguments! Missing argument <${this._name}>`
+				`Too few arguments! Missing argument <${this.name}>`
 			);
 		}
 
-		return this._applyPreprocessor(arg);
+		return this.#applyPreprocessor(arg);
 	}
 
-	/// Branch for parsing multiple (varargs) arguments
-	_parseVarargs(args) {
-		if (args == null && !this._optional) {
+	// Branch for parsing multiple (varargs) arguments
+	#parseVarargs(args) {
+		if (args == null && !this.is_optional) {
 			throw new CommandError('Too few arguments! ' +
-				`Argument <${this._name}> requires at least one value.`
+				`Argument <${this.name}> requires at least one value.`
 			);
 		}
 
@@ -139,17 +437,17 @@ class Argument {
 
 		// Resolve individual Promises in async mode so we can return an array
 		// of values instead of an array of Promises.
-		const vals = args.map((val, index) => this._applyPreprocessor(val, index));
-		return this._async ? Promise.all(vals) : vals;
+		const vals = args.map((val, index) => this.#applyPreprocessor(val, index));
+		return this.is_async ? Promise.all(vals) : vals;
 	}
 
-	/// Shared logic for applying the preprocessor function to an argument.
-	_applyPreprocessor(input, index) {
-		if (!input && this._optional) {
-			// Important so this argument still shows up in the final hash
+	// Shared logic for applying the preprocessor function to an argument.
+	#applyPreprocessor(input, index) {
+		if (!input && this.is_optional) {
+			// Important so this argument still shows up in the final object
 			return null;
 		}
-		if (!this._preprocessor) {
+		if (!this.preprocessor) {
 			return input;
 		}
 
@@ -159,7 +457,7 @@ class Argument {
 
 		// Dress up errors thrown in preprocessor with additional context
 		const throwWithContext = err => {
-			let arg_id = `<${this._name}>`;
+			let arg_id = `<${this.name}>`;
 
 			// Give a little more context for varargs errors
 			if (index != null) { // So index 0 is still true
@@ -170,8 +468,8 @@ class Argument {
 		};
 
 		try {
-			const processed = this._preprocessor(input);
-			if (this._async && processed instanceof Promise) {
+			const processed = this.preprocessor(input);
+			if (this.is_async && processed instanceof Promise) {
 				return processed.then(getReturnValue).catch(throwWithContext);
 			} else {
 				return getReturnValue(processed);
@@ -182,68 +480,105 @@ class Argument {
 	}
 
 	/**
-	 * Adds a function that processes an argument value before it reaches
-	 * the command handler. This can double as a validator, and thrown
-	 * exceptions will bubble up in a user-readable way.
-	 * The return value of the given function will be forwarded to the command
-	 * handler. If the given function does not return anything, the argument
-	 * will be forwarded as-is.
+	 * Sets up a preprocessor function that will be applied to any value that
+	 * passes through {@link Argument#parse} for this `Argument`. When called in
+	 * the context of a {@link Command}, the return value of this preprocessor
+	 * will be added to the parsed {@link Args} Object. If the preprocessor does
+	 * not return anything (return value is `undefined`), the value will be
+	 * added to {@link Args} as-is. Values thrown from this preprocessor will
+	 * bubble up with additional context.
 	 *
-	 * Returns this so we can chain calls.
+	 * @category builder
+	 * @param {Preprocessor} func The preprocessor function.
+	 * @throws {SetupError} for non-Function values.
+	 * @return {Argument} instance so we can chain calls.
 	 */
 	preprocess(func) {
-		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new SetupError(`func was ${type(func)}, ` +
-				'expected [object Function] or [object AsyncFunction]'
-			);
-		}
-
-		this._preprocessor = func;
+		this.preprocessor = func;
 		return this;
 	}
 
 	/**
-	 * Returns a human-readable string describing this argument.
+	 * Generates a human-readable string describing this `Argument`. Useful for
+	 * building command usage strings from multiple arguments.
+	 * - Required `<example>`
+	 * - Optional `[example]`
+	 * - Varargs  `<example_1> [example_2] ... [example_n]`
+	 *
+	 * @category execution
+	 * @return {external:String} A human-readable description of this `Argument`.
 	 */
 	usage() {
 		// b for bracket
-		const lb = this._optional ? '[' : '<';
-		const rb = this._optional ? ']' : '>';
+		const lb = this.is_optional ? '[' : '<';
+		const rb = this.is_optional ? ']' : '>';
 
-		if (this._varargs) {
-			return `${lb}${this._name}_1${rb} [${this._name}_2] ... [${this._name}_n]`;
+		if (this.is_varargs) {
+			return `${lb}${this.name}_1${rb} [${this.name}_2] ... [${this.name}_n]`;
 		} else {
-			return `${lb}${this._name}${rb}`;
+			return `${lb}${this.name}${rb}`;
 		}
 	}
 
 	/**
-	 * Allows this argument to accept multiple values. Each individual argument
-	 * will be subject to the preprocessor, if one is given.
-	 * A varargs argument must be the last argument for a command.
+	 * Enables or disables variable arguments (varargs) for this `Argument`.
+	 * A varargs `Argument` can accept multiple values, and each individual
+	 * value will be separately subject to the preprocessor (if one is given).
+	 * The first value of a varargs `Argument` is required (unless optional is
+	 * enabled), but all subsequent values are always optional.
+	 * **NOTE** A varargs `Argument` must be the last argument in a set for a
+	 * {@link Command}.
 	 *
-	 * Returns this so we can chain calls.
+	 * @category builder
+	 * @param {Boolean} enabled `true` for enabled, `false` for disabled.
+	 * @throws {SetupError} for non-Boolean values.
+	 * @return {Argument} instance so we can chain calls.
 	 */
 	varargs(enabled) {
-		if (!isBoolean(enabled)) {
-			throw new SetupError(
-				`enabled was ${type(enabled)}, expected [object Boolean]`
-			);
-		}
-
-		this._varargs = enabled;
+		this.is_varargs = enabled;
 		return this;
 	}
 }
 
 /**
- * Represents a text-based command with positional arguments.
+ * A text-based command with positional arguments.
+ *
+ * A `Command` can be given a set of {@link Argument}s (or multiple sets of
+ * {@link Argument}s), parse strings into an object of values (see {@link Args}),
+ * and pass those values to a function that runs on command execution.
+ *
+ * @example
+ * function coerceToNumber(val) {
+ *     if (!Number.isInteger(val)) throw new Error('not a number!');
+ *     return Number.parseInt(val);
+ * }
+ * const command = new Command('example')
+ *     .description('My cool command that adds numbers')
+ *     .addArgSet([
+ *         new Argument('arg1').preprocess(coerceToNumber),
+ *         new Argument('arg2').preprocess(coerceToNumber),
+ *     ])
+ *     .handler((args, arbitrary) => {
+ *         const value = args.arg1 + args.arg2;
+ *         console.log('Value is', value);
+ *         console.log('Also got this from caller:', arbitrary);
+ *         return value;
+ *     });
+ *
+ * const use  = command.usage();               // "example <arg1> <arg2>"
+ * const val1 = command.execute('12 34');      // val1 = 46
+ * const val2 = command.execute(['55', '45']); // val2 = 100
+ * const val3 = command.execute('12');       // throws CommandError, missing second argument!
+ * const val4 = command.execute('12 hello'); // throws CommandError, second argument not a number!
  */
 class Command {
 
 	/**
-	 * Splits a command string into an array of parts. This essentially just
+	 * Splits a command string into an array of tokens. This essentially just
 	 * splits on whitespace.
+	 *
+	 * @param {external:String} string Command string to split.
+	 * @return {external:String[]} {@link external:Array} of command tokens.
 	 */
 	static split(string) {
 		if (!isString(string)) {
@@ -256,38 +591,109 @@ class Command {
 		return string.split(/\s+/).filter(Boolean);
 	}
 
-	/**
-	 * Begins constructing a command with the given name.
-	 */
-	constructor(name) {
-		if (!isString(name)) {
-			throw new SetupError(`name was ${type(name)}, expected [object String]`);
-		}
-		if (!name) {
-			throw new SetupError('name was empty string');
-		}
+	#argsets = [];
+	#desc = null;
+	#handler = null;
+	#handler_err = null;
+	#is_async = false;
+	#name;
 
-		this._async = false;
-		this._name = name;
-		this._argsets = [];
-		this._description = null;
-		this._err_handler = null;
-		this._handler = null;
+	/**
+	 * Directly access the argument sets for this `Command`. This is a read-only
+	 * property.
+	 *
+	 * @category accessor
+	 */
+	get argsets() {
+		return this.#argsets.map(set => set.slice()); // Return a deep-ish copy
 	}
 
 	/**
-	 * Adds a set of arguments this command can accept.
-	 * Expects an array of <code>Argument</code> objects. Because all arguments
-	 * are positional, there are several rules to avoid ambiguous command
-	 * definitions:
-	 *  - A command must not have multiple argument sets with the same size.
-	 *  - A command must not have multiple argument sets with varargs arguments.
-	 *  - An optional argument must be the last argument in an argument set.
-	 *  - The varargs argument must be the last argument in an argument set.
-	 *  - The argument set containing the varargs argument must be the largest
-	 *    argument set.
+	 * Directly get and set the description for this `Command`. Setting this has
+	 * the same effect as calling {@link Command#description}.
 	 *
-	 * Returns this so we can chain calls.
+	 * @category accessor
+	 * @see {@link Command#description}
+	 */
+	set desc(string) {
+		if (!isString(string)) {
+			throw new SetupError(`desc was ${type(string)}, expected [object String]`);
+		}
+
+		this.#desc = string;
+	}
+	get desc() {
+		return this.#desc;
+	}
+
+	/**
+	 * Directly get and set asynchronous mode for this `Command`. Setting this
+	 * has the same effect as calling {@link Command#asynchronous}.
+	 *
+	 * @category accessor
+	 * @see {@link Command#asynchronous}
+	 * @default false
+	 */
+	set is_async(enabled) {
+		if (!isBoolean(enabled)) {
+			throw new SetupError(
+				`is_async was ${type(enabled)}, expected [object Boolean]`
+			);
+		}
+
+		this.#is_async = enabled;
+		this.#applyAsyncToArgsets();
+	}
+	get is_async() {
+		return this.#is_async;
+	}
+
+	/**
+	 * Directly get and set the name for this `Command`. Subject to the same
+	 * validation as {@link #new_Command_new|new Command()}.
+	 *
+	 * @category accessor
+	 * @see {@link #new_Command_new|new Command()}
+	 */
+	set name(string) {
+		if (!isString(string)) {
+			throw new SetupError(`name was ${type(string)}, expected [object String]`);
+		}
+		if (!string) {
+			throw new SetupError('name was empty string');
+		}
+
+		this.#name = string;
+	}
+	get name() {
+		return this.#name;
+	}
+
+	/**
+	 * Creates a new `Command` with the given name.
+	 *
+	 * @throws {SetupError} Missing, empty, or non-String names.
+	 */
+	constructor(name) {
+		this.name = name;
+	}
+
+	/**
+	 * Adds a set of {@link Argument}s this `Command` can accept.
+	 * Arguments are all positional, so this function enforces several rules to
+	 * avoid ambiguous command definitions:
+	 * - A `Command` cannot have multiple argument sets with the same length.
+	 * - A `Command` cannot have multiple argument sets with varargs arguments.
+	 * - Optional arguments must be the last arguments in an argument set.
+	 * - A varargs argument must be the last argument in an argument set.
+	 * - The argument set containing a varargs argument must be the largest set.
+	 *
+	 * @category builder
+	 * @param {Argument[]} argset {@link external:Array} of `Argument` objects.
+	 * @throws {SetupError} for non-Array values.
+	 * @throws {SetupError} for Arrays containing non-Argument values.
+	 * @throws {SetupError} if any argument set rule is violated.
+	 * @return {Command} instance so we can chain calls.
 	 */
 	addArgSet(argset) {
 		if (!Array.isArray(argset) || !argset.every(arg => arg instanceof Argument)) {
@@ -295,23 +701,23 @@ class Command {
 		}
 
 		const pre = 'Ambiguous argument sets';
-		const hasVarargs = (set) => set.find(arg => arg._varargs);
-		const allsets = [...this._argsets, argset];
+		const hasVarargs = (set) => set.find(arg => arg.is_varargs);
+		const allsets = [...this.#argsets, argset];
 		const max_set_len = allsets.reduce(
 			(max, cur) => (cur.length > max ? cur.length : max), 0
 		);
 
-		if (this._argsets.find(set => set.length === argset.length)) {
+		if (this.#argsets.find(set => set.length === argset.length)) {
 			throw new SetupError(`${pre}: Multiple sets of length ${argset.length}`);
 		}
 
-		if (argset.find(arg => arg._optional) &&
-			argset.findIndex(arg => arg._optional) != argset.length - 1) {
+		if (argset.find(arg => arg.is_optional) &&
+			argset.findIndex(arg => arg.is_optional) != argset.length - 1) {
 			throw new SetupError(`${pre}: optional argument must be last in set`);
 		}
 
 		if (hasVarargs(argset) &&
-			argset.findIndex(arg => arg._varargs) != argset.length - 1
+			argset.findIndex(arg => arg.is_varargs) != argset.length - 1
 		) {
 			throw new SetupError(`${pre}: varargs argument must be last in set`);
 		}
@@ -328,191 +734,195 @@ class Command {
 			throw new SetupError(`${pre}: set containing varargs must be largest set`);
 		}
 
-		this._argsets.push(argset);
-		this._applyAsyncToArgsets();
+		this.#argsets.push(argset);
+		this.#applyAsyncToArgsets();
 		return this;
 	}
 
 	/**
-	 * Enable/disable async mode. In async mode, Promises returned from argument
-	 * preprocessors and command handlers will be automatically resolved. This
-	 * means <code>execute</code> will always return a Promise. This also
-	 * enables async mode for all known argument sets.
+	 * Enables or disables async mode. In async mode, {@link Command#execute}
+	 * and {@link Command#parse} will both return a {@link external:Promise}
+	 * that fulfills based on the parse and/or command execution, instead of
+	 * returning or throwing. Promises returned from {@link Argument}s will also
+	 * be automatically resolved before adding them to the {@link Args}.
+	 * This setting is applied recursively to all {@link Argument}s in this
+	 * `Command`.
 	 *
-	 * Returns this so we can chain calls.
+	 * @category builder
+	 * @param {Boolean} enabled `true` to enable async, `false` to disable.
+	 * @throws {SetupError} for non-Boolean values.
+	 * @return {Command} instance so we can chain calls.
 	 */
 	asynchronous(enabled) {
-		if (!isBoolean(enabled)) {
-			throw new SetupError(
-				`enabled was ${type(enabled)}, expected [object Boolean]`
-			);
-		}
-
-		this._async = enabled;
-		this._applyAsyncToArgsets();
+		this.is_async = enabled;
 		return this;
 	}
 
-	/// Applies this Command's async setting to all known Arguments too.
-	_applyAsyncToArgsets() {
-		this._argsets.forEach(argset =>
-			argset.forEach(arg => arg.asynchronous(this._async))
+	// Applies this Command's async setting to all known Arguments too.
+	#applyAsyncToArgsets() {
+		this.#argsets.forEach(argset =>
+			argset.forEach(arg => arg.asynchronous(this.is_async))
 		);
 	}
 
 	/**
-	 * Sets the description for this command.
-	 * Returns this so we can chain calls.
+	 * Sets the description text for this `Command`.
+	 *
+	 * @category builder
+	 * @param {external:String} desc The description text.
+	 * @throws {SetupError} for non-String values.
+	 * @return {Command} instance so we can chain calls.
 	 */
 	description(desc) {
-		if (!isString(desc)) {
-			throw new SetupError(`name was ${type(desc)}, expected [object String]`);
-		}
-
-		this._description = desc;
+		this.desc = desc;
 		return this;
 	}
 
 	/**
-	 * Sets the function to execute when an error is thrown while executing the
-	 * command. If this is not set, errors are thrown to the caller instead.
-	 * The handler takes the error, along with any arguments originally
-	 * forwarded to the handler.
+	 * Sets up a handler function for values thrown during command execution.
+	 * When this is set, values will not be thrown (or passed to `.catch()` in
+	 * async mode). Instead, they will be passed to this handler function, along
+	 * with all of the arbitrary arguments originally forwarded from
+	 * {@link Command#execute}. Additionally, values returned from this handler
+	 * will be returned to the caller (via `.then()` in async mode). Values
+	 * thrown within this handler will be re-thrown to the caller as a
+	 * {@link CommandError} (bubbled up via `.catch()` in async mode).
 	 *
-	 * In async mode, errors are routed through this function instead of
-	 * .catch(...). Additionally, values returned from this handler will bubble
-	 * up via execute's .then(...).
-	 *
-	 * Returns this so we can chain calls.
+	 * @category builder
+	 * @param {ErrorHandler} func The error handler function.
+	 * @throws {SetupError} for non-Function values.
+	 * @return {Command} instance so we can chain calls.
 	 */
 	error(func) {
 		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new SetupError(`func was ${type(func)}, ` +
+			throw new SetupError(`error handler was ${type(func)}, ` +
 				'expected [object Function] or [object AsyncFunction]'
 			);
 		}
 
-		this._err_handler = func;
+		this.#handler_err = func;
 		return this;
 	}
 
 	/**
-	 * Parses the given positional argument array, then passes the resulting
-	 * structure into this command's handler function. Additional values can be
-	 * passed in to forward them directly to the handler.
+	 * Executes an argument string (or array) using the handler for this
+	 * `Command`. Additional arbitrary arguments can be forwarded to the command
+	 * handler. Values returned from the handler will be returned from this
+	 * function (or bubble up via `.then()` in async mode). Values thrown from
+	 * the handler will be rethrown from this function (or bubble up via
+	 * `.catch()` in async mode).
 	 *
-	 * The return value is whatever the handler function returns.
-	 * If this command does not have a handler, the arguments will still be
-	 * proecessed and validation will still be applied.
+	 * If an {@link ErrorHandler} has been set via {@link Command#error}, values
+	 * thrown from the handler function will be passed to that handler instead
+	 * of being rethrown from this function. The error handler is subject to all
+	 * of the same conditions as the command handler, so values returned/thrown
+	 * from the error handler will be returned/thrown from this function
+	 * (or bubble up via `.then()` and `.catch()`, respectively in async mode).
 	 *
-	 * This can also take command strings so commands can be executed
-	 * independently of the CommandRegistry.
+	 * If this `Command` has no handler, the given arguments will still be
+	 * processed and validated.
+	 *
+	 * @category execution
+	 * @param {external:String|external:String[]} parts Arguments for this
+	 *     command. Should not include the command's name.
+	 * @param {?any[]} ...forward Arbitrary additional values passed to handler.
+	 * @throws {CommandError} for all reasons as {@link Command#parse}.
+	 * @throws {CommandError} for anything thrown within the handler.
+	 * @return {?any} Whatever the handler function returns.
+	 * @return {Promise<?any>} in async mode.
 	 */
 	execute(parts, ...forward) {
 		if (isString(parts)) {
 			parts = Command.split(parts);
 		}
 
-		return this._async ?
-			this._executeAsync(parts, ...forward) :
-			this._executeSync(parts, ...forward);
+		return this.is_async ?
+			this.#executeAsync(parts, ...forward) :
+			this.#executeSync(parts, ...forward);
 	}
 
-	/// Sync version of execute
-	_executeSync(parts, ...forward) {
+	// Sync branch of execute
+	#executeSync(parts, ...forward) {
 		let parsed_parts;
 		try {
 			parsed_parts = this.parse(parts);
 		} catch (err) {
-			return this._executeHandleError(err, ...forward);
+			return this.#executeHandleError(err, ...forward);
 		}
 
-		if (this._handler) {
+		if (this.#handler) {
 			try {
-				return this._handler(parsed_parts, ...forward);
+				return this.#handler(parsed_parts, ...forward);
 			} catch (err) {
 				const cmderr = new CommandError('Command failed', err);
-				return this._executeHandleError(cmderr, ...forward);
+				return this.#executeHandleError(cmderr, ...forward);
 			}
 		}
 	}
 
-	/// Async version of execute that always returns a Promise
-	_executeAsync(parts, ...forward) {
+	// Async branch of execute that always returns a Promise
+	#executeAsync(parts, ...forward) {
 		return Promise.resolve(this.parse(parts))
 			.then(parsed_parts => {
-				if (!this._handler) {
+				if (!this.#handler) {
 					return Promise.resolve(); // Resolve to undefined
 				}
 
 				// Wrap in new Promise to catch both sync and async errors
 				return new Promise(resolve => {
-					resolve(this._handler(parsed_parts, ...forward));
+					resolve(this.#handler(parsed_parts, ...forward));
 				})
 				.catch(err => {
 					// Bubble up to the next .catch with additional context
 					throw new CommandError('Command failed', err);
 				});
 			})
-			.catch(err => this._executeHandleError(err, ...forward));
+			.catch(err => this.#executeHandleError(err, ...forward));
 	}
 
-	/// De-duplicated logic for passing execution errors to the error handler.
-	_executeHandleError(err, ...forward) {
-		err = this._wrap(err);
+	// De-duplicated logic for passing execution errors to the error handler.
+	#executeHandleError(err, ...forward) {
+		err = this.#wrap(err);
 
-		if (this._err_handler) {
-			return this._err_handler(err, ...forward);
+		if (this.#handler_err) {
+			return this.#handler_err(err, ...forward);
 		}
 
 		throw err;
 	}
 
 	/**
-	 * Returns the command's description. We'll usually do this alongside
-	 * usage(), so make this look like a function call too.
-	 */
-	getDescription() {
-		return this._description;
-	}
-
-	/**
-	 * Sets the function to execute when this command is called.
-	 * The parsed argument hash is passed into this function, along with any
-	 * forwarded arguments passed into <code>execute</code>.
-	 * Returns this so we can chain calls.
+	 * Sets up a handler function when this `Command` is executed.
+	 *
+	 * @category builder
+	 * @param {Handler} func The handler function.
+	 * @throws {SetupError} for non-Function values.
+	 * @return {Command} instance so we can chain calls.
 	 */
 	handler(func) {
 		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new SetupError(`func was ${type(func)}, ` +
+			throw new SetupError(`handler was ${type(func)}, ` +
 				'expected [object Function] or [object AsyncFunction]'
 			);
 		}
 
-		this._handler = func;
+		this.#handler = func;
 		return this;
 	}
 
 	/**
-	 * Returns a string describing command usage.
-	 * If the command has multiple argument sets, each version of the command is
-	 * in the string, separated by a newline.
-	 */
-	usage() {
-		const use = this._argsets.map(argset =>
-			`${this._name} ${argset.map(arg => arg.usage()).join(' ')}`
-		).join('\n');
-		// Just return the command name if there are no arguments.
-		return use || `${this._name}`;
-	}
-
-	/**
-	 * Parses the given positional value array into a structure resembling
-	 * argument parsing libraries like yargs.
+	 * Parses the given positional argument array into an Object of values.
+	 * This function does its best to match the given values to an appropriate
+	 * argument set. Since all arguments are positional, error diagnostics are
+	 * limited if this `Command` has multiple argument sets defined.
 	 *
-	 * This function do its best to match the values to one of the command's
-	 * argument sets. Since all arguments are positional, diagnostics are
-	 * limited if the argument has multiple argument sets defined.
+	 * @category execution
+	 * @param {external:String[]} parts Array of command parts from
+	 *     {@link Command.split}.
+	 * @throws {CommandError} if no argument set matches the given parts.
+	 * @throws {CommandError} if any argument preprocessor function throws.
+	 * @return {Args} the parsed {@link external:Object} of arguments.
+	 * @return {Promise<Args>} in async mode.
 	 */
 	parse(parts) {
 		parts = parts || [];
@@ -523,16 +933,16 @@ class Command {
 
 		let argset;
 
-		if (this._argsets.length <= 1) {
-			argset = this._argsets[0] || [];
+		if (this.#argsets.length <= 1) {
+			argset = this.#argsets[0] || [];
 		} else {
-			argset = this._argsets.find(set => set.length === copy.length);
+			argset = this.#argsets.find(set => set.length === copy.length);
 
 			if (!argset) {
-				const err = this._wrap(new CommandError(
+				const err = this.#wrap(new CommandError(
 					'Wrong number of arguments! See command help for details'
 				));
-				if (this._async) return Promise.reject(err);
+				if (this.is_async) return Promise.reject(err);
 				throw err;
 			}
 		}
@@ -543,48 +953,48 @@ class Command {
 		// only appear once, as the last argument in the largest set.
 		// Also yeah, I know we're modifying things by reference here. It's
 		// weird, but so is mixing async and sync.
-		if (this._async) {
+		if (this.is_async) {
 			return executeSequentially(
-				argset, arg => this._parseAsync(arg, parsed, copy)
+				argset, arg => this.#parseAsync(arg, parsed, copy)
 			)
-			.then(() => this._parseCheckExtraArgs(copy))
+			.then(() => this.#parseCheckExtraArgs(copy))
 			.then(() => parsed)
-			.catch(err => { throw this._wrap(err) });
+			.catch(err => { throw this.#wrap(err) });
 		} else {
 			try {
-				argset.forEach(arg => this._parseSync(arg, parsed, copy));
-				this._parseCheckExtraArgs(copy);
+				argset.forEach(arg => this.#parseSync(arg, parsed, copy));
+				this.#parseCheckExtraArgs(copy);
 				return parsed;
 			} catch (err) {
-				throw this._wrap(err);
+				throw this.#wrap(err);
 			}
 		}
 	}
 
-	/// The sync version of argument parsing
-	_parseSync(arg, parsed, parts_ref) {
-		if (arg._varargs) {
-			parsed[arg._name] = arg.parse(parts_ref);
+	// The sync version of argument parsing
+	#parseSync(arg, parsed, parts_ref) {
+		if (arg.is_varargs) {
+			parsed[arg.name] = arg.parse(parts_ref);
 			parts_ref.length = 0; // Clear array to avoid below length Error
 		} else {
-			parsed[arg._name] = arg.parse(parts_ref.shift());
+			parsed[arg.name] = arg.parse(parts_ref.shift());
 		}
 	}
 
-	/// The async version of argument parsing
-	async _parseAsync(arg, parsed, parts_ref) {
-		if (arg._varargs) {
-			parsed[arg._name] = await arg.parse(parts_ref);
+	// The async version of argument parsing
+	async #parseAsync(arg, parsed, parts_ref) {
+		if (arg.is_varargs) {
+			parsed[arg.name] = await arg.parse(parts_ref);
 			parts_ref.length = 0; // Clear array since varargs parsed all of it.
 			// This is safe to do here because varargs Arguments must be last in
 			// the arg list, and we execute argument parsing sequentially.
 		} else {
-			parsed[arg._name] = await arg.parse(parts_ref.shift());
+			parsed[arg.name] = await arg.parse(parts_ref.shift());
 		}
 	}
 
-	/// Shared check for extraneous args used by both sync and async workflow
-	_parseCheckExtraArgs(parts_ref) {
+	// Shared check for extraneous args used by both sync and async workflow
+	#parseCheckExtraArgs(parts_ref) {
 		if (parts_ref.length > 0) {
 			// We'll catch and wrap this later
 			throw new CommandError(
@@ -594,8 +1004,26 @@ class Command {
 		}
 	}
 
-	/// Injects this command instance into CommandErrors
-	_wrap(err) {
+	/**
+	 * Generates a string describing the usage of this `Command`.
+	 * If this command has multiple argument sets, each version of the command
+	 * is in the string, separated by a newline. If the command has no argument
+	 * sets, this just returns the command name.
+	 *
+	 * @category execution
+	 * @return {external:String} description of command usage.
+	 */
+	usage() {
+		// TODO consider "fullUsage" that also includes description, or take bool
+		const use = this.#argsets.map(argset =>
+			`${this.name} ${argset.map(arg => arg.usage()).join(' ')}`
+		).join('\n');
+		// Just return the command name if there are no arguments.
+		return use || `${this.name}`;
+	}
+
+	// Injects this command instance into CommandErrors
+	#wrap(err) {
 		if (err instanceof CommandError) {
 			err.command = this;
 		}
@@ -604,22 +1032,52 @@ class Command {
 }
 
 /**
- * Gives us an object oriented way to wrap any errors thrown during command
- * parsing and execution.
+ * Error thrown during execution of {@link Argument}, {@link Command}, and
+ * {@link CommandRegistry} objects.
  *
- * Anything thrown in user-provided code (handlers, preprocessors) will be
- * contained within this Error object. This class also contains some additional
- * context such as extended error messages and the Command the Error originated
- * in, allowing callers to do command-specific error handling.
+ * Anything thrown in user-provided code (command handlers and argument
+ * preprocessors) is wrapped with a `CommandError`. The `CommandError` instance
+ * also contains additional context, such as extended error messages and a
+ * reference to the {@link Command} that threw (if any). This allows callers
+ * to do command-specific error handling, if necessary.
+ *
+ * @extends {external:Error}
+ * @typicalname err
  */
 class CommandError extends Error {
+
+	/**
+	 * The {@link Command} this `CommandError` originated in, if any.
+	 *
+	 * @default undefined
+	 */
+	command = undefined;
+
+	/**
+	 * A simple flag callers can check to see if an `Error` is a `CommandError`.
+	 * This field is always `true`, and is provided only as an alternative to
+	 * `error instanceof CommandError`.
+	 */
+	is_command_error = true;
+
+	/**
+	 * The value that was actually thrown in the user code. This could be
+	 * anything.
+	 *
+	 * @default null
+	 */
+	nested = null;
+
 	constructor(message, nested_err) {
 		super(message);
-		this.command = undefined;
-		this.is_command_error = true;
 		this.nested = nested_err;
 	}
 
+	/**
+	 * Gets this `CommandError`'s `message` combined with `nested.message`, if
+	 * `nested` is an {@link external:Error}. Otherwise, this value is identical
+	 * to {@link CommandError#message}.
+	 */
 	get full_message() {
 		let msg = this.message;
 		// TODO handle wrapping another CommandError?
@@ -630,7 +1088,14 @@ class CommandError extends Error {
 	}
 }
 
-/// Error thrown when setting up Argument, Command, or CommandRegistry objects.
+/**
+ * Error thrown when setting up {@link Argument}, {@link Command}, and
+ * {@link CommandRegistry} objects. These are typically thrown for invalid
+ * values, such as passing non-Function values for handler functions.
+ *
+ * @extends {external:Error}
+ * @typicalname err
+ */
 class SetupError extends Error {
 	constructor(message) {
 		super(message);
@@ -640,21 +1105,123 @@ class SetupError extends Error {
 /**
  * A registry containing commands. Can take in command strings and delegate them
  * to the appropriate commands.
+ *
+ * @typicalname registry
  */
 class CommandRegistry {
 
 	/**
-	 * Sets up the Map that contains all of the commands.
+	 * An optional default handler for unrecognized commands. Simply throws an
+	 * error.
+	 *
+	 * @see {@link DefaultHandler}
+	 * @param {external:String[]} cmd_parts Array of command parts from
+	 *     {@link Command.split}.
+	 * @throws {external:Error} Always
 	 */
-	constructor() {
-		this.commands = new Map();
-		this._async = false;
-		this._default_handler = null;
+	static defaultDefaultHandler(cmd_parts) {
+		const cmd_name = cmd_parts.shift();
+		throw new Error(`Unrecognized command '${cmd_name}'`);
 	}
 
 	/**
-	 * Adds a new command to the registry. All commands must have unique names.
-	 * Returns this so we can chain calls.
+	 * An optional default handler for the help command. Returns the usage for
+	 * the given command, according to its {@link Command#usage} function. If no
+	 * command name is given, returns the usage for all known commands,
+	 * separated by newlines.
+	 *
+	 * @see {@link HelpHandler}
+	 * @param {Args} args Argument {@link external:Object} containing at least
+	 *     `command`.
+	 * @param {Map<Command>} commands The {@link external:Map} of `Commands` in
+	 *     the registry.
+	 * @return {external:String} Description of the given command, or all known
+	 *     commands.
+	 */
+	static defaultHelpHandler(args, commands) {
+		if (args.command) {
+			const cmd = commands.get(args.command);
+			if (cmd) {
+				return cmd.usage();
+			} else {
+				return `Unknown command '${args.command}'`;
+			}
+		} else {
+			return Array.from(commands.values())
+				.map(cmd => cmd.usage())
+				.join('\n');
+		}
+	}
+
+	/**
+	 * The {@link external:Map} of {@link Command} objects. Useful for iterating.
+	 *
+	 * @category accessor
+	 */
+	commands = new Map();
+	#is_async = false;
+	#default_handler = null;
+
+	/**
+	 * Directly get and set asynchronous mode for this `CommandRegistry`.
+	 * Setting this has the same effect as calling
+	 * {@link CommandRegistry#asynchronous}.
+	 *
+	 * @category accessor
+	 * @see {@link CommandRegistry#asynchronous}
+	 * @default false
+	 */
+	set is_async(enabled) {
+		if (!isBoolean(enabled)) {
+			throw new SetupError(
+				`is_async was ${type(enabled)}, expected [object Boolean]`
+			);
+		}
+
+		this.#is_async = enabled;
+		this.#applyAsyncToCommands();
+	}
+	get is_async() {
+		return this.#is_async;
+	}
+
+	/**
+	 * Directly get and set the default handler for unrecognized commands for
+	 * this `CommandRegistry`. Setting this has the same effect as calling
+	 * {@link CommandRegistry#defaultHandler}.
+	 *
+	 * @category accessor
+	 * @see {@link CommandRegistry#defaultHandler}
+	 */
+	set default_handler(func) {
+		if (!isFunction(func) && !isAsyncFunction(func)) {
+			throw new SetupError(`default handler was ${type(func)}, ` +
+				'expected [object Function] or [object AsyncFunction]'
+			);
+		}
+
+		this.#default_handler = func;
+	}
+	get default_handler() {
+		return this.#default_handler;
+	}
+
+	/**
+	 * Creates a new `CommandRegistry`.
+	 */
+	constructor() { }
+
+	/**
+	 * Adds a {@link Command} to this `CommandRegistry`. All commands must have
+	 * unique names. If this `CommandRegistry` is in async mode, the
+	 * `Command` will be switched to async mode too.
+	 *
+	 * @category builder
+	 * @param {Command} command The command to add.
+	 * @throws {SetupError} For non-Command values.
+	 * @throws {SetupError} If the `CommandRegistry` already has a `Command`
+	 *     with the given name.
+	 * @return {CommandRegistry} instance so we can chain calls.
 	 */
 	add(command) {
 		if (!(command instanceof Command)) {
@@ -662,76 +1229,87 @@ class CommandRegistry {
 				`command was ${type(command)}, expected [object Command]`
 			);
 		}
-		if (this.commands.has(command._name)) {
-			throw new SetupError(`Defined duplicate command '${command._name}'`);
+		if (this.commands.has(command.name)) {
+			throw new SetupError(`Defined duplicate command '${command.name}'`);
 		}
 
-		this.commands.set(command._name, command);
-		this._applyAsyncToCommands();
+		this.commands.set(command.name, command);
+		this.#applyAsyncToCommands();
 		return this;
 	}
 
 	/**
-	 * Sets every command and argument in this registry to async mode. In async
-	 * mode, <code>help</code> and <code>execute</code> will both return
-	 * Promises that resolve/reject based on the command execution.
+	 * Enables or disables async mode for this `CommandRegistry`. In async mode,
+	 * {@link CommandRegistry#help} and {@link CommandRegistry#execute} will
+	 * both return a {@link external:Promise} that fulfills based on the command
+	 * execution. This setting is applied recursively to all {@link Command}s
+	 * and {@link Argument}s in this `CommandRegistry`.
 	 *
-	 * This setting will be applied to all new and existing commands.
-	 *
-	 * Returns this so we can chain calls.
+	 * @category builder
+	 * @param {Boolean} enabled `true` to enable async, `false` to disable.
+	 * @throws {SetupError} for non-Boolean values.
+	 * @return {CommandRegistry} instance so we can chain calls.
 	 */
 	asynchronous(enabled) {
-		if (!isBoolean(enabled)) {
-			throw new SetupError(
-				`enabled was ${type(enabled)}, expected [object Boolean]`
-			);
-		}
-
-		this._async = enabled;
-		this._applyAsyncToCommands();
+		this.is_async = enabled;
 		return this
 	}
 
-	/// Recursively apply this CommandRegistry's async setting to all commands.
-	_applyAsyncToCommands() {
-		this.commands.forEach(cmd => cmd.asynchronous(this._async));
+	// Recursively apply this CommandRegistry's async setting to all commands.
+	#applyAsyncToCommands() {
+		this.commands.forEach(cmd => cmd.asynchronous(this.is_async));
 	}
 
 	/**
-	 * Sets up a handler function for unrecognized commands (or the default
-	 * handler, if none is specified. See <code>defaultDefaultHandler</code>).
+	 * Sets up a handler function for unrecognized commands.
 	 * If this is not set, unknown commands are a no-op.
 	 *
-	 * NOTE the default handler function signature is slightly different from
-	 * other handlers. Default handlers receive an object containing the
-	 * result from <code>Command.parse</code>.
+	 * **NOTE** the default handler function signature is slightly different
+	 * from other handlers (see {@link DefaultHandler}).
 	 *
-	 * Returns this so we can chain calls.
+	 * @category builder
+	 * @param {?DefaultHandler} func The handler function. If omitted, uses
+	 *     {@link CommandRegistry.defaultDefaultHandler}.
+	 * @throws {SetupError} for non-Function values.
+	 * @return {CommandRegistry} instance so we can chain calls.
 	 */
 	defaultHandler(func) {
-		func = func || defaultDefaultHandler;
-
-		if (!isFunction(func) && !isAsyncFunction(func)) {
-			throw new SetupError(`func was ${type(func)}, ` +
-				'expected [object Function] or [object AsyncFunction]'
-			);
-		}
-
-		this._default_handler = func;
+		func = func || CommandRegistry.defaultDefaultHandler;
+		this.default_handler = func;
 		return this;
 	}
 
 	/**
-	 * Executes the command that corresponds to the given string. If the
-	 * referenced command doesn't exist, we fall back on the default command
-	 * handler, if there is one. If the command name is 'help', we use the
-	 * special help command handler.
-	 * In all cases, arbitrary additional values can be forwarded to the
-	 * handlers.
+	 * Executes a string (or array) as a command. Additional arbitrary arguments
+	 * can be forwarded to the command handler, and the value returned from the
+	 * command handler will bubble up and return from this function. If this
+	 * `CommandRegistry` does not have a command matching the given string, this
+	 * is either a no-op, or the default command handler is called (if set). If
+	 * the given command's name is `help`, this call is equivalent to calling
+	 * {@link CommandRegistry#help}.
+	 *
+	 * @category execution
+	 * @see {@link Command.execute}
+	 * @param {external:String|external:String[]} parts A string containing a
+	 *     command, or a pre-split {@link external:Array} of command parts.
+	 * @param {?any[]} ...forward Arbitrary additional values passed to handler.
+	 * @throws {CommandError} Wraps anything thrown in handler.
+	 * @return {?any} Return value forwarded back to caller.
+	 * @return {Promise<?any>} In async mode.
+	 * @example
+	 * // Call a command that adds two numbers
+	 * let x = registry.execute('add 12 14'); // x is 26
+	 * let x = registry.execute(['add', '10', '20']); // x is 30
+	 *
+	 * // Call a command from a Discord.js message.
+	 * // Remember to sanitize your inputs! https://xkcd.com/327/
+	 * registry.execute(msg.content, msg);
 	 */
-	execute(string, ...forward) {
+	execute(parts, ...forward) {
 		const executeInner = () => {
-			const parts = Command.split(string);
+			if (isString(parts)) {
+				parts = Command.split(parts);
+			}
 			const cmd_name = parts.shift();
 
 			if (this.commands.has(cmd_name)) {
@@ -741,41 +1319,60 @@ class CommandRegistry {
 				}
 
 				return this.commands.get(cmd_name).execute(parts, ...mod_forward);
-			} else if (this._default_handler) {
-				return this._default_handler([cmd_name, ...parts], ...forward);
+			} else if (this.default_handler) {
+				return this.default_handler([cmd_name, ...parts], ...forward);
 			}
 		};
 
-		return this._async ?
+		return this.is_async ?
 			new Promise(resolve => resolve(executeInner())) :
 			executeInner();
 	}
 
 	/**
-	 * Executes the help handler. In order for this function to do anything,
-	 * <code>helpHandler</code> needs to have been called, otherwise this
-	 * function is a no-op.
-	 * Returns the help handler's return value. Additional arbitrary arguments
-	 * will be forwarded to the help handler.
+	 * Executes the help command for this `CommandRegistry`. In order for this
+	 * function to do anything, {@link CommandRegistry#helpHandler} needs to
+	 * be called first to set up a help command. Like
+	 * {@link CommandRegistry#execute}, this function can forward additional
+	 * arbitrary arguments to the help handler function, and the value returned
+	 * from the help handler will bubble up to this function.
+	 *
+	 * @category execution
+	 * @param {?external:String} cmd_name The name of a command to request help
+	 *     for. In order to omit this value while providing forwarded arguments,
+	 *     pass in a falsy value, like `null`.
+	 * @param {?any[]} ...forward Arbitrary additional values passed to handler.
+	 * @throws {CommandError} Wraps anything thrown in handler.
+	 * @return {?any} Return value forwarded back to caller.
+	 * @return {Promise<?any>} In async mode.
+	 * @example
+	 * registry.help();
+	 * registry.help('say');
+	 * registry.help('say', msg);
+	 * registry.help(null, msg);
 	 */
 	help(cmd_name, ...forward) {
+		// TODO Maybe registries should come with the help command set up already?
 		cmd_name = cmd_name || '';
 		return this.execute(`help ${cmd_name}`, ...forward);
 	}
 
 	/**
-	 * Sets up a help command using the given handler function (or the default
-	 * handler, if none is specified. See <code>defaultHelpHandler</code>).
+	 * Sets up a help command using the given {@link HelpHandler} function.
+	 * If this is not set, help commands are treated like unknown commands.
 	 *
-	 * NOTE the help handler function signature is slightly different from other
-	 * handlers. Help handlers get the command Map object as a second
-	 * parameter.
+	 * **NOTE** the help handler function signature is slightly different from
+	 * other handlers (see {@link HelpHandler}).
 	 *
-	 * Returns this so we can chain calls.
+	 * @category builder
+	 * @param {?HelpHandler} func The handler function. If omitted, uses
+	 *     {@link CommandRegistry.defaultHelpHandler}.
+	 * @throws {SetupError} for non-Function values.
+	 * @return {CommandRegistry} instance so we can chain calls.
 	 */
 	helpHandler(func) {
 		// Command.handler checks if this is a valid function
-		func = func || defaultHelpHandler;
+		func = func || CommandRegistry.defaultHelpHandler;
 
 		if (!this.commands.has('help')) {
 			this.add(new Command('help')
@@ -787,32 +1384,6 @@ class CommandRegistry {
 
 		this.commands.get('help').handler(func);
 		return this;
-	}
-}
-
-/**
- * The default handler for unrecognized commands. Simply throws an error.
- */
-function defaultDefaultHandler(args) {
-	const cmd_name = args.shift();
-	throw new Error(`Unrecognized command '${cmd_name}'`);
-}
-
-/**
- * The default handler for the help command. Returns the usage for the given
- * commnd name. If no command name is given, returns the usage for all known
- * commands, separated by newlines.
- */
-function defaultHelpHandler(args, commands) {
-	if (args.command) {
-		const cmd = commands.get(args.command);
-		if (cmd) {
-			return cmd.usage();
-		} else {
-			return `Unknown command '${args.command}'`;
-		}
-	} else {
-		return Array.from(commands.values()).map(cmd => cmd.usage()).join('\n');
 	}
 }
 
@@ -840,7 +1411,7 @@ function isString(value) {
 }
 
 function type(value) {
-	return Object.prototype.toString.call(value)
+	return Object.prototype.toString.call(value);
 }
 
 module.exports = {

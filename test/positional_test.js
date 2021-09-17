@@ -47,11 +47,11 @@ describe('Positional command parser', function() {
 			it('Non-function preprocessor', function () {
 				expect(() => new Argument('test').preprocess({})).to.throw(
 					SetupError,
-					'func was [object Object], expected [object Function]'
+					'preprocessor was [object Object], expected [object Function]'
 				);
 			});
 
-			it('Non-string and non-Array args', function() {
+			it('Non-string and non-Array-of-string args', function() {
 				const arg = new Argument('test');
 				expect(() => arg.parse({})).to.throw(
 					CommandError,
@@ -61,26 +61,31 @@ describe('Positional command parser', function() {
 					CommandError,
 					"args was [object Boolean], expected [object String] or 'Array<string>'"
 				);
+
+				expect(() => arg.parse(["good", false])).to.throw(
+					CommandError,
+					"args Array contained a [object Boolean], expected all elements to be [object String]"
+				)
 			});
 
 			it('Non-boolean asynchronous flag', function() {
 				expect(() => new Argument('test').asynchronous({})).to.throw(
 					SetupError,
-					'enabled was [object Object], expected [object Boolean]'
+					'is_async was [object Object], expected [object Boolean]'
 				);
 			});
 
 			it('Non-boolean optional flag', function() {
 				expect(() => new Argument('test').optional({})).to.throw(
 					SetupError,
-					'enabled was [object Object], expected [object Boolean]'
+					'is_optional was [object Object], expected [object Boolean]'
 				);
 			});
 
 			it('Non-boolean varargs flag', function() {
 				expect(() => new Argument('test').varargs({})).to.throw(
 					SetupError,
-					'enabled was [object Object], expected [object Boolean]'
+					'is_varargs was [object Object], expected [object Boolean]'
 				);
 			});
 		});
@@ -385,28 +390,28 @@ describe('Positional command parser', function() {
 			it('Non-boolean asynchronous flag', function() {
 				expect(() => new Command('test').asynchronous({})).to.throw(
 					SetupError,
-					'enabled was [object Object], expected [object Boolean]'
+					'is_async was [object Object], expected [object Boolean]'
 				);
 			});
 
 			it('Non-string description', function() {
 				expect(() => new Command('test').description({})).to.throw(
 					SetupError,
-					'name was [object Object], expected [object String]'
+					'desc was [object Object], expected [object String]'
 				);
 			});
 
 			it('Non-function handler', function() {
 				expect(() => new Command('test').handler({})).to.throw(
 					SetupError,
-					'func was [object Object], expected [object Function]'
+					'handler was [object Object], expected [object Function]'
 				);
 			});
 
 			it('Non-function error handler', function() {
 				expect(() => new Command('test').error({})).to.throw(
 					SetupError,
-					'func was [object Object], expected [object Function]'
+					'error handler was [object Object], expected [object Function]'
 				);
 			});
 		});
@@ -416,14 +421,14 @@ describe('Positional command parser', function() {
 			it('No arguments or description', function() {
 				const cmd = new Command('test');
 				expect(cmd.usage()).to.equal('test');
-				expect(cmd.getDescription()).to.be.null;
+				expect(cmd.desc).to.be.null;
 			});
 
 			it('Description only', function() {
 				const cmd = new Command('test')
 					.description('Some cool info');
 				expect(cmd.usage()).to.equal('test');
-				expect(cmd.getDescription()).to.equal('Some cool info');
+				expect(cmd.desc).to.equal('Some cool info');
 			});
 
 			it('Single argument set', function() {
@@ -431,7 +436,7 @@ describe('Positional command parser', function() {
 					.description('Stuff here')
 					.addArgSet([new Argument('arg1')]);
 				expect(cmd.usage()).to.equal('test <arg1>');
-				expect(cmd.getDescription()).to.equal('Stuff here');
+				expect(cmd.desc).to.equal('Stuff here');
 			});
 
 			it('Multiple argument sets', function() {
@@ -440,7 +445,7 @@ describe('Positional command parser', function() {
 					.addArgSet([new Argument('one')])
 					.addArgSet([new Argument('arg1'), new Argument('arg2')]);
 				expect(cmd.usage()).to.equal('test <one>\n' + 'test <arg1> <arg2>');
-				expect(cmd.getDescription()).to.equal('I am a cool description');
+				expect(cmd.desc).to.equal('I am a cool description');
 			});
 
 			it('Argument set with varargs', function() {
@@ -453,7 +458,7 @@ describe('Positional command parser', function() {
 				expect(cmd.usage()).to.equal(
 					'test <first> <rest_1> [rest_2] ... [rest_n]'
 				);
-				expect(cmd.getDescription()).to.equal('Hello');
+				expect(cmd.desc).to.equal('Hello');
 			});
 		});
 
@@ -464,11 +469,11 @@ describe('Positional command parser', function() {
 				const cmd = new Command('test').asynchronous(true);
 				const arg = new Argument('test');
 
-				expect(arg._async).to.be.false;
+				expect(arg.is_async).to.be.false;
 
 				cmd.addArgSet([arg]);
 
-				expect(arg._async).to.be.true;
+				expect(arg.is_async).to.be.true;
 			});
 
 			it('Async setting applied recursively to all argument sets', function() {
@@ -476,9 +481,9 @@ describe('Positional command parser', function() {
 					.addArgSet([new Argument('arga1')])
 					.addArgSet([new Argument('argb1'), new Argument('argb2')]);
 
-				const asyncArgs = () => cmd._argsets
+				const asyncArgs = () => cmd.argsets
 					.reduce((acc, set) => acc.concat(set), [])
-					.filter(arg => arg._async);
+					.filter(arg => arg.is_async);
 
 				expect(asyncArgs()).to.be.empty;
 
@@ -1124,7 +1129,7 @@ describe('Positional command parser', function() {
 				const cmdreg = new CommandRegistry();
 				expect(() => cmdreg.asynchronous({})).to.throw(
 					SetupError,
-					'enabled was [object Object], expected [object Boolean]'
+					'is_async was [object Object], expected [object Boolean]'
 				);
 			});
 
@@ -1132,7 +1137,7 @@ describe('Positional command parser', function() {
 				const cmdreg = new CommandRegistry();
 				expect(() => cmdreg.defaultHandler('not a function')).to.throw(
 					SetupError,
-					'func was [object String], expected [object Function]'
+					'default handler was [object String], expected [object Function]'
 				);
 			});
 
@@ -1140,7 +1145,7 @@ describe('Positional command parser', function() {
 				const cmdreg = new CommandRegistry();
 				expect(() => cmdreg.helpHandler({})).to.throw(
 					SetupError,
-					'func was [object Object], expected [object Function]'
+					'handler was [object Object], expected [object Function]'
 				);
 			});
 		});
@@ -1455,6 +1460,12 @@ describe('Positional command parser', function() {
 					.to.eventually.equal('My cool thing');
 			});
 
+			it('Can provide arg array instead of string', function() {
+				const cmdreg = new CommandRegistry()
+					.add(new Command('com').handler(() => 'Cool stuff'));
+				expect(cmdreg.execute(['com'])).to.equal('Cool stuff');
+			});
+
 			it('Error thrown from handler bubbles up', function() {
 				const cmdreg = new CommandRegistry()
 					.add(new Command('test').handler(() => {
@@ -1498,11 +1509,11 @@ describe('Positional command parser', function() {
 				const cmd = new Command('test');
 				const cmdreg = new CommandRegistry().asynchronous(true);
 
-				expect(cmd._async).to.be.false;
+				expect(cmd.is_async).to.be.false;
 
 				cmdreg.add(cmd);
 
-				expect(cmd._async).to.be.true;
+				expect(cmd.is_async).to.be.true;
 			});
 
 			it('Async changes applied recursively to commands', function() {
@@ -1510,7 +1521,7 @@ describe('Positional command parser', function() {
 					.add(new Command('test1'))
 					.add(new Command('test2'));
 				const asyncCmds = () =>
-					Array.from(cmdreg.commands.values()).filter(cmd => cmd._async);
+					Array.from(cmdreg.commands.values()).filter(cmd => cmd.is_async);
 
 				expect(asyncCmds()).to.be.empty;
 
